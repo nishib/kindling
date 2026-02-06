@@ -1,0 +1,46 @@
+{
+  "messages": [
+    {
+      "channel": "#general",
+      "author": "Alex Chen (CEO)",
+      "content": "Great news team! Just closed our seed round - $2.5M led by Bessemer. This gives us 24 months runway to hit product-market fit. Let's ship! 🚀",
+      "timestamp": "2024-02-01 09:00:00",
+      "source": "slack"
+    },
+    {
+      "channel": "#product",
+      "author": "Sarah Kim (Head of Product)",
+      "content": "Customer feedback from this week: 1) WhatsApp integration is #1 request (shipping Feb 15!), 2) Merchants love the auto-categorization feature, 3) Some confusion about pricing tiers. Working with marketing on clearer pricing page.",
+      "timestamp": "2024-02-03 14:30:00",
+      "source": "slack"
+    },
+    {
+      "channel": "#engineering",
+      "author": "Marcus Johnson (CTO)",
+      "content": "Heads up: We're migrating from GPT-3.5 to GPT-4 this weekend. Expect 2x better responses but 3x higher costs. Finance approved the budget increase. Rollback plan ready if issues arise.",
+      "timestamp": "2024-02-04 10:15:00",
+      "source": "slack"
+    },
+    {
+      "channel": "#general",
+      "author": "Emily Rodriguez (Customer Success)",
+      "content": "Big win! Fashion retailer TrendyStyles (50k orders/month) just upgraded to our Pro plan. They saw 70% reduction in support tickets in their trial. This could be our case study for the website.",
+      "timestamp": "2024-02-05 11:00:00",
+      "source": "slack"
+    },
+    {
+      "channel": "#product",
+      "author": "David Park (Senior Engineer)",
+      "content": "Shipped the new caching layer - chat responses now 60% faster (avg 320ms). Also fixed the Unicode bug affecting Japanese merchants. Monitoring closely over the weekend.",
+      "timestamp": "2024-02-05 16:45:00",
+      "source": "slack"
+    },
+    {
+      "channel": "#general",
+      "author": "Lisa Wang (Head of Sales)",
+      "content": "Pipeline update: 15 demos scheduled this week. Seeing strong interest from beauty/cosmetics vertical. Main objection: 'How is this different from Gorgias?' Need better competitive positioning docs.",
+      "timestamp": "2024-02-06 09:30:00",
+      "source": "slack"
+    }
+  ]
+}

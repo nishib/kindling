@@ -1,0 +1,25 @@
+{
+  "repositories": [
+    {
+      "name": "velora-api",
+      "readme": "# Velora API\n\nCore backend for Velora AI customer support platform.\n\n## Tech Stack\n- Python 3.11 + FastAPI\n- PostgreSQL with pgvector for embeddings\n- Redis for caching and job queues\n- OpenAI GPT-4 for responses\n- Pinecone for vector search\n\n## Getting Started\n```bash\ndocker-compose up\npython -m uvicorn main:app --reload\n```\n\n## Architecture\n- `/chat` - Customer chat endpoints\n- `/admin` - Merchant dashboard API\n- `/webhooks` - Shopify/WooCommerce webhooks\n- `/ml` - Model training and inference\n\n## Environment Variables\n- `OPENAI_API_KEY` - GPT-4 access\n- `SHOPIFY_API_KEY` - Store integration\n- `PINECONE_API_KEY` - Vector search",
+      "last_commit": "2024-02-06",
+      "language": "Python",
+      "source": "github"
+    },
+    {
+      "name": "velora-widget",
+      "readme": "# Velora Chat Widget\n\nEmbeddable chat widget for e-commerce stores.\n\n## Features\n- 🚀 Loads in <100ms\n- 🎨 Fully customizable design\n- 🌍 Auto-detects customer language\n- 📱 Mobile responsive\n- 🔒 GDPR compliant\n\n## Installation\n```html\n<script src='https://cdn.velora.ai/widget.js'></script>\n<script>\n  Velora.init({\n    apiKey: 'your-key',\n    position: 'bottom-right',\n    primaryColor: '#5B21B6'\n  })\n</script>\n```\n\n## React Component\n```jsx\nimport { VeloraChat } from '@velora/react'\n\n<VeloraChat\n  shopId='shop_123'\n  theme='dark'\n  language='auto'\n/>\n```",
+      "last_commit": "2024-02-05",
+      "language": "TypeScript",
+      "source": "github"
+    },
+    {
+      "name": "velora-shopify-app",
+      "readme": "# Velora Shopify App\n\nOfficial Shopify app for Velora AI support.\n\n## Quick Start\n1. Install from Shopify App Store\n2. Connect your Velora account\n3. Import order history (optional)\n4. Customize auto-reply rules\n5. Go live!\n\n## Features\n- Order lookup by email/number\n- Automatic refund processing\n- Shipping status updates\n- Product recommendations\n- Coupon code generation\n\n## Webhook Events\n- `orders/create`\n- `orders/updated`\n- `customers/create`\n- `refunds/create`\n\n## API Rate Limits\n- 2 requests/second per shop\n- 10,000 requests/day",
+      "last_commit": "2024-02-04",
+      "language": "JavaScript",
+      "source": "github"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+# OnboardAI - Render deployment (Sponsor: Render)
+services:
+  - type: web
+    name: onboardai-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: onboardai-db
+          property: connectionString
+      - key: REDIS_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: COMPOSIO_API_KEY
+        sync: false
+      - key: COMPOSIO_PROJECT_ID
+        sync: false
+      - key: YOU_API_KEY
+        sync: false
+
+  - type: worker
+    name: onboardai-worker
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A worker worker --beat --loglevel=info
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: onboardai-db
+          property: connectionString
+      - key: REDIS_URL
+        sync: false
+      - key: COMPOSIO_API_KEY
+        sync: false
+      - key: COMPOSIO_PROJECT_ID
+        sync: false
+
+databases:
+  - name: onboardai-db
+    plan: free
+    postgresMajorVersion: 15
+    extensions:
+      - vector

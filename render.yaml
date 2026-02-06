@@ -20,6 +20,8 @@ services:
         sync: false
       - key: YOU_API_KEY
         sync: false
+      - key: RENDER_API_KEY
+        sync: false
 
   - type: worker
     name: onboardai-worker

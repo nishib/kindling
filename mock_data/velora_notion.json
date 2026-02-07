@@ -34,6 +34,41 @@
       "content": "Onboarding process: 1) 15-min setup call, 2) Install Shopify app, 3) Import historical tickets, 4) Train on merchant's knowledge base, 5) Test with real customers in 'assist mode' first week. Success metrics: Time to first auto-reply (<24 hours), CSAT score (>4.5/5), Deflection rate (>60%). Common issues: Integration timeouts (fix: retry logic), Slow responses (fix: cache common queries), Wrong language detection (fix: use customer profile). Escalation: Slack #customer-emergency channel.",
       "created": "2024-02-05",
       "source": "notion"
+    },
+    {
+      "id": "notion_006",
+      "title": "Sales Playbook 2024",
+      "content": "Target customers: E-commerce brands doing $10M-$100M ARR with 100+ support tickets per month. ICP: Head of CX, VP Operations, or CEO at mid-market DTC brands. Discovery questions: Current support volume? Current tools (Zendesk/Gorgias)? Pain points (resolution time, agent costs, multilingual)? Pricing: Start with Growth plan ($299/mo), upsell Enterprise for white-label. Common objections: 'AI sounds scary' (counter: assist mode, human review), 'We use Gorgias' (counter: show price comparison, faster setup), 'Too small' (counter: freemium tier). Close rate: 35% demo-to-paid. Sales cycle: 2-3 weeks avg.",
+      "created": "2024-02-07",
+      "source": "notion"
+    },
+    {
+      "id": "notion_007",
+      "title": "Company Values & Culture",
+      "content": "Velora values: 1) Customer obsession - Ship fast, iterate with feedback, 2) Transparency - Open salaries, public roadmap, weekly all-hands, 3) Ownership - Everyone owns outcomes, not tasks, 4) Learning - Bi-weekly demo days, education budget $2k/year, 5) Work-life balance - Unlimited PTO (minimum 3 weeks), async-first, no weekend work. Team size: 15 people (4 eng, 3 product, 2 sales, 2 CS, 2 design, 2 ops). Office: Remote-first, HQ in SF for quarterly offsites. Benefits: Competitive equity (0.5-2%), health/dental/vision, home office stipend, co-working membership.",
+      "created": "2024-02-07",
+      "source": "notion"
+    },
+    {
+      "id": "notion_008",
+      "title": "Security & Compliance Overview",
+      "content": "Velora is SOC 2 Type II compliant (audit completed Jan 2024). Data security: All data encrypted at rest (AES-256) and in transit (TLS 1.3). Customer data is isolated per tenant with row-level security. No PII leaves our infrastructure. GDPR compliant: Right to delete, data portability, DPA available. Infrastructure: Hosted on AWS us-east-1 and eu-west-1. Daily backups with 30-day retention. Incident response plan with 4-hour SLA for critical issues. Security contact: security@velora.ai. Penetration testing: Annual third-party pen tests (last: Dec 2023, no critical findings).",
+      "created": "2024-02-08",
+      "source": "notion"
+    },
+    {
+      "id": "notion_009",
+      "title": "Product Features Deep Dive",
+      "content": "Core features: 1) Auto-reply - AI generates responses based on knowledge base + order context, 2) Intent detection - Classifies tickets (refund, shipping, product question) for routing, 3) Sentiment analysis - Flags angry customers for priority handling, 4) Multi-language - Supports 12 languages with auto-detection, 5) Order lookup - Pulls Shopify order data into conversation, 6) Macro suggestions - Suggests canned responses for common questions, 7) Analytics - CSAT, resolution time, deflection rate dashboards. Roadmap: SMS/WhatsApp (Q1), Voice (Q2), Proactive outreach (Q3). Beta features: Auto-refund (approves refunds under $50 automatically), Product recommendations (suggests products based on query).",
+      "created": "2024-02-08",
+      "source": "notion"
+    },
+    {
+      "id": "notion_010",
+      "title": "Employee Onboarding Guide",
+      "content": "Welcome to Velora! Your first week: Day 1 - IT setup, meet the team, read mission/values docs. Day 2 - Product walkthrough with Sarah (Head of Product), install Velora on test store. Day 3 - Codebase tour (engineers) or GTM overview (sales/CS). Day 4 - Shadow customer calls or pair programming. Day 5 - First contribution (write doc, close ticket, ship small feature). Resources: Notion workspace (this!), GitHub repos (velora-api, velora-widget), Slack channels (#general, #engineering, #product, #customer-success). Buddy system: You'll be paired with a teammate for Q&A. 30-60-90 day goals set with your manager. Questions? Ask in #onboarding or DM Alex (CEO).",
+      "created": "2024-02-09",
+      "source": "notion"
     }
   ]
 }

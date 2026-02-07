@@ -148,6 +148,18 @@ def main():
     print("🚀 Starting database seed...")
     create_tables()
     db = SessionLocal()
+
+    # Check if database already has data (skip seeding on redeploy)
+    try:
+        existing_count = db.scalar(select(func.count()).select_from(KnowledgeItem))
+        if existing_count > 0:
+            print(f"⚠️ Database already has {existing_count} items. Skipping seed to preserve data.")
+            print("   (To force reseed, manually clear the database first)")
+            db.close()
+            return
+    except Exception as e:
+        print(f"⚠️ Could not check existing data: {e}")
+
     try:
         db.execute(delete(KnowledgeItem))
         db.execute(delete(CompetitorIntel))

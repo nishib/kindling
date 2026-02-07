@@ -20,6 +20,20 @@
       "last_commit": "2024-02-04",
       "language": "JavaScript",
       "source": "github"
+    },
+    {
+      "name": "velora-dashboard",
+      "readme": "# Velora Merchant Dashboard\n\nReact-based admin dashboard for merchants to manage AI support.\n\n## Tech Stack\n- React 18 + TypeScript\n- Vite for build tooling\n- TailwindCSS for styling\n- React Query for data fetching\n- Recharts for analytics visualizations\n\n## Key Features\n- Real-time conversation monitoring\n- AI training interface (upload docs, FAQs)\n- Analytics: CSAT, resolution time, deflection rate\n- Team management (agents, permissions)\n- Integration settings (Shopify, Klaviyo, etc)\n\n## Development\n```bash\nnpm install\nnpm run dev  # localhost:3000\nnpm run build  # production build\nnpm run test  # run tests\n```\n\n## Environment Variables\n- `VITE_API_URL` - Backend API endpoint\n- `VITE_SHOPIFY_CLIENT_ID` - OAuth client ID",
+      "last_commit": "2024-02-08",
+      "language": "TypeScript",
+      "source": "github"
+    },
+    {
+      "name": "velora-ml-models",
+      "readme": "# Velora ML Models\n\nMachine learning models and training pipelines for Velora AI.\n\n## Models\n\n### Intent Classifier\n- Fine-tuned BERT model for ticket classification\n- Categories: refund, shipping, product_question, account, other\n- Accuracy: 94% on validation set\n- Training data: 50k labeled support tickets\n\n### Sentiment Analyzer\n- DistilBERT for emotion detection\n- Labels: angry, neutral, happy\n- Used to prioritize urgent/frustrated customers\n\n### Response Generator\n- GPT-4 fine-tuned on e-commerce support conversations\n- Trained on 100k merchant-specific ticket resolutions\n- Includes RAG pipeline with Pinecone vector DB\n\n## Training\n```bash\npython train_intent_classifier.py --epochs 10 --batch-size 32\npython train_sentiment.py --model distilbert\npython evaluate.py --model intent --test-data data/test.jsonl\n```\n\n## Inference API\nModels deployed on AWS SageMaker with auto-scaling. See `deploy/` for CloudFormation templates.",
+      "last_commit": "2024-02-09",
+      "language": "Python",
+      "source": "github"
     }
   ]
 }

@@ -4,13 +4,7 @@ export const sampleQuestions = [
   "What is Velora's main product?",
   "Who are our main competitors?",
   "What's our tech stack?",
-  "How many people are on the team?",
   "What's our pricing strategy?",
-  "What integrations do we support?",
-  "Who led our seed round?",
-  "What's our target market?",
-  "What are the Q1 2024 priorities?",
-  "How do we compare to Gorgias?",
 ]
 
 export const mockAnswers = {

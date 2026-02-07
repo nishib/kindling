@@ -126,27 +126,63 @@ def _is_competitor_question(question: str) -> bool:
 def _enhance_query_for_competitive_search(question: str) -> str:
     """
     Transform user's question into a competitive/market-focused search query.
-    Example: "What is Velora's main product?" -> "AI customer support main product competition market"
+    Automatically detects question topic and adds relevant competitive/market context.
+    Example: "What is Velora's main product?" -> "AI customer support main product competition market alternatives"
     """
     q = (question or "").strip().lower()
 
-    # Extract key terms and add competitive context
-    # Remove common question words
-    q = q.replace("what is", "").replace("what are", "").replace("who is", "")
-    q = q.replace("velora's", "").replace("velora", "")
-    q = q.replace("our", "").replace("the", "")
-    q = q.replace("?", "").strip()
+    # Remove common question words to extract core topic
+    q_cleaned = q
+    for phrase in ["what is", "what are", "what's", "who is", "who are", "how does", "tell me about", "give me"]:
+        q_cleaned = q_cleaned.replace(phrase, "")
+    q_cleaned = q_cleaned.replace("velora's", "").replace("velora", "")
+    q_cleaned = q_cleaned.replace("our", "").replace("the", "")
+    q_cleaned = q_cleaned.replace("?", "").strip()
 
-    # Add competitive/market context keywords
-    if "product" in q:
-        q = f"AI customer support {q} competition market alternatives"
-    elif "pricing" in q or "cost" in q or "price" in q:
-        q = f"customer support software {q} pricing comparison competitors"
-    elif "feature" in q:
-        q = f"AI customer support {q} competitive analysis market"
+    # Topic-based competitive query enhancement
+    # Product & Features
+    if any(k in q for k in ["product", "platform", "solution", "offering"]):
+        return f"AI customer support {q_cleaned} competition market alternatives comparison"
+
+    # Pricing & Business Model
+    elif any(k in q for k in ["pricing", "price", "cost", "plan", "subscription", "tier"]):
+        return f"customer support software {q_cleaned} pricing comparison competitors cost analysis"
+
+    # Features & Capabilities
+    elif any(k in q for k in ["feature", "capability", "function", "tool", "automation"]):
+        return f"AI customer support {q_cleaned} competitive analysis features comparison market"
+
+    # Competitors
+    elif any(k in q for k in ["competitor", "competition", "rival", "versus", "vs", "intercom", "zendesk", "gorgias"]):
+        return f"AI customer support {q_cleaned} competitive landscape market share comparison"
+
+    # Tech Stack & Architecture
+    elif any(k in q for k in ["tech stack", "technology", "architecture", "infrastructure", "framework", "database"]):
+        return f"AI customer support platform {q_cleaned} technology stack architecture comparison industry standards"
+
+    # Team & Company
+    elif any(k in q for k in ["team", "founder", "employee", "people", "culture", "hiring"]):
+        return f"AI customer support startup {q_cleaned} company team funding market"
+
+    # Roadmap & Strategy
+    elif any(k in q for k in ["roadmap", "future", "plan", "strategy", "vision", "upcoming"]):
+        return f"AI customer support industry {q_cleaned} trends roadmap competitive strategy market direction"
+
+    # Sales & Go-to-Market
+    elif any(k in q for k in ["sales", "customer", "client", "deal", "revenue", "growth"]):
+        return f"AI customer support market {q_cleaned} sales strategy customer acquisition competitive positioning"
+
+    # Onboarding & Implementation
+    elif any(k in q for k in ["onboard", "implementation", "setup", "getting started", "integration"]):
+        return f"AI customer support {q_cleaned} onboarding implementation best practices industry comparison"
+
+    # Daily Brief / Summary requests
+    elif any(k in q for k in ["brief", "summary", "update", "news", "recent"]):
+        return f"AI customer support industry news updates competitive landscape market trends recent"
+
+    # Generic enhancement: add market/competition context
     else:
-        # Generic enhancement: add market/competition context
-        q = f"AI customer support {q} market competition alternatives"
+        return f"AI customer support {q_cleaned} market competition alternatives industry analysis"
 
     return q.strip()
 
@@ -167,7 +203,18 @@ def _recent_knowledge_for_brief(db: Session, limit: int = _TOP_K_BRIEF) -> list:
 def _competitor_context_items(db: Session, question: str, limit: int = 5) -> list[dict]:
     """
     Fetch competitor context for RAG: cached DB intel + live You.com search.
-    Always searches you.com to provide current market/competitive intelligence.
+
+    AUTOMATIC COMPETITIVE SEARCH:
+    This function runs automatically for EVERY question asked by the user.
+    It intelligently detects the question topic (product, pricing, tech stack, team, etc.)
+    and automatically runs a you.com web search with competitive/market context.
+
+    For example:
+    - "What's our pricing strategy?" → searches "customer support software pricing comparison competitors"
+    - "What's our tech stack?" → searches "AI customer support platform technology stack architecture comparison"
+    - "Who are our competitors?" → searches "AI customer support competitive landscape market share"
+
+    This ensures every answer includes current market intelligence and competitive context.
     """
     from sqlalchemy import select
     from you_com import live_search_for_rag
@@ -189,7 +236,7 @@ def _competitor_context_items(db: Session, question: str, limit: int = 5) -> lis
         })
     # ALWAYS add live You.com web + news (up to 5 items) to augment with current info
     # This ensures every question gets enriched with live market/competitive context
-    # Transform the question into a competitive search query
+    # Transform the question into a competitive search query based on topic detection
     enhanced_query = _enhance_query_for_competitive_search(question)
     live = live_search_for_rag(enhanced_query, max_items=5)
     for c in live[:5]:

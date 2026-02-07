@@ -292,20 +292,21 @@ Your job is to:
 4. Rewrite everything in clear, concise, professional product-brief language.
 5. Group related facts and merge overlapping points.
 
-Output the final brief as a single JSON object with exactly these keys (use empty arrays for missing sections):
-- summary: array of 3–5 strings (most important leadership-level takeaways)
-- product: array of strings (shipping updates; performance/reliability; bugs/incidents; max ~5)
-- sales: array of strings (pipeline; customer objections; GTM/revenue; max ~5)
-- company: array of strings (strategy; positioning; competitive landscape; max ~5)
-- onboarding: array of strings (onboarding process; success metrics; common issues; max ~5)
-- risks: array of strings (product; market/competitive; execution/operational; max ~5)
+Output the final brief as a single JSON object with exactly these keys:
+- summary: array of 1-2 strings (most important leadership-level takeaways, 1-2 sentences each)
+- product: array of 1-2 strings (shipping updates; performance/reliability; bugs/incidents; 1-2 sentences each)
+- sales: array of 1-2 strings (pipeline; customer objections; GTM/revenue; 1-2 sentences each)
+- company: array of 1-2 strings (strategy; positioning; competitive landscape; 1-2 sentences each)
+- onboarding: array of 1-2 strings (onboarding process; success metrics; common issues; 1-2 sentences each)
+- risks: array of 1-2 strings (product; market/competitive; execution/operational; 1-2 sentences each)
 
-Rules:
+CRITICAL Rules:
+- EVERY section must have at least 1 entry with 1-2 sentences. NEVER use empty arrays.
+- If you cannot find specific information for a section, infer based on context or write a general statement.
+- Each bullet should be exactly 1-2 sentences, no more, no less.
 - Do NOT mention sources (e.g., Slack, Notion, web).
 - Do NOT quote raw text; rewrite in your own words.
-- If information is missing for a section, use an empty array [] for that section.
 - If multiple items conflict, surface the conflict clearly in one bullet.
-- Keep each section scannable and concise (max ~5 bullets per section).
 - Prioritize what leadership would care about today.
 - Return ONLY valid JSON, no markdown code fence or extra text."""
 
@@ -325,7 +326,7 @@ def _raw_context_blob_for_brief(items: list, competitor_dicts: list) -> str:
 
 
 def _parse_brief_json(text: str) -> dict:
-    """Parse JSON from model output; tolerate markdown code block."""
+    """Parse JSON from model output; tolerate markdown code block. Fill empty sections with fallback."""
     if not text or not str(text).strip():
         return {}
     raw = str(text).strip()
@@ -338,14 +339,18 @@ def _parse_brief_json(text: str) -> dict:
         out = json.loads(raw)
         if not isinstance(out, dict):
             return {}
-        # Normalize keys and ensure arrays
+        # Normalize keys and ensure arrays with fallback for empty sections
         result = {}
         for key in ("summary", "product", "sales", "company", "onboarding", "risks"):
             val = out.get(key)
             if isinstance(val, list):
-                result[key] = [str(x).strip() for x in val if str(x).strip()]
+                items = [str(x).strip() for x in val if str(x).strip()]
+                # If section is empty, add fallback message
+                if not items:
+                    items = ["Ask manager for more information."]
+                result[key] = items
             else:
-                result[key] = []
+                result[key] = ["Ask manager for more information."]
         return result
     except json.JSONDecodeError:
         return {}
@@ -377,21 +382,21 @@ def generate_daily_brief(db: Session) -> dict:
     if not context_blob:
         return {
             "summary": ["No recent data available. Run a Composio sync and refresh intel to generate a brief."],
-            "product": [],
-            "sales": [],
-            "company": [],
-            "onboarding": [],
-            "risks": [],
+            "product": ["Ask manager for more information."],
+            "sales": ["Ask manager for more information."],
+            "company": ["Ask manager for more information."],
+            "onboarding": ["Ask manager for more information."],
+            "risks": ["Ask manager for more information."],
         }
 
     if not client:
         return {
             "summary": ["Brief generation requires GEMINI_API_KEY."],
-            "product": [],
-            "sales": [],
-            "company": [],
-            "onboarding": [],
-            "risks": [],
+            "product": ["Ask manager for more information."],
+            "sales": ["Ask manager for more information."],
+            "company": ["Ask manager for more information."],
+            "onboarding": ["Ask manager for more information."],
+            "risks": ["Ask manager for more information."],
         }
 
     try:
@@ -427,31 +432,31 @@ Respond with a single JSON object only (keys: summary, product, sales, company, 
         if not text or not str(text).strip():
             return {
                 "summary": ["Could not generate brief. Try again or check API key."],
-                "product": [],
-                "sales": [],
-                "company": [],
-                "onboarding": [],
-                "risks": [],
+                "product": ["Ask manager for more information."],
+                "sales": ["Ask manager for more information."],
+                "company": ["Ask manager for more information."],
+                "onboarding": ["Ask manager for more information."],
+                "risks": ["Ask manager for more information."],
             }
         parsed = _parse_brief_json(str(text).strip())
         if not parsed:
             return {
                 "summary": ["Brief response was not valid. Try again."],
-                "product": [],
-                "sales": [],
-                "company": [],
-                "onboarding": [],
-                "risks": [],
+                "product": ["Ask manager for more information."],
+                "sales": ["Ask manager for more information."],
+                "company": ["Ask manager for more information."],
+                "onboarding": ["Ask manager for more information."],
+                "risks": ["Ask manager for more information."],
             }
         return parsed
     except Exception:
         return {
             "summary": ["Brief generation failed. Ensure GEMINI_API_KEY is set and try again."],
-            "product": [],
-            "sales": [],
-            "company": [],
-            "onboarding": [],
-            "risks": [],
+            "product": ["Ask manager for more information."],
+            "sales": ["Ask manager for more information."],
+            "company": ["Ask manager for more information."],
+            "onboarding": ["Ask manager for more information."],
+            "risks": ["Ask manager for more information."],
         }
 
 

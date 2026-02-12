@@ -1,152 +1,171 @@
-# Ignition — Lighting the fire for modern ERP fluency
+## Kindling — Sparking ERP fluency
 
-**Ignition helps Campfire teams learn the accounting and ERP space and everything they need to know about Campfire’s major customers** — structured learning paths, customer hub with one-click briefs, glossary, and RAG-powered Q&A. Integrates **You.com**, **Gemini**, and optionally **Perplexity**; **Firecrawl** is last.
+**Kindling is an internal tool that helps Campfire teams build ERP intuition by combining structured learning with hands‑on simulation.**
+
+Today it ships three main pieces:
+
+- **ERP Skill Map + Knowledge Graph** — a navigable map of core ERP and accounting concepts (GL, revenue recognition, integrations, etc.) with dependencies and “recommended next” suggestions.
+- **Learning paths** — two short, opinionated paths for **Accounting fundamentals** and **ERP fundamentals** with concise, markdown‑formatted modules.
+- **Simulated ERP scenarios** — a decision‑driven “practice environment” where you debug synthetic revenue and integration issues with an AI coach and synthetic datasets.
+- **Competitive intelligence** — You.com‑powered web + news search and a cached ERP competitor feed (NetSuite, SAP, QuickBooks, Oracle).
+
+The original customer hub / glossary / Firecrawl plans are not implemented in this repo and are no longer described here.
 
 ---
 
-## Build order (chunks)
+## What’s implemented
 
-Work is split into phases. **Start with Learning pathways**; **Firecrawl is last.**
+- **Skill Map & concept graph**
+  - Backend: `erp_concept_graph.py` exposes concepts, dependencies, and “recommend next” via:
+    - `GET /api/learning/concept-graph`
+    - `GET /api/learning/concepts/{concept_id}`
+    - `GET /api/learning/recommend-next?completed=...`
+  - Frontend: `App.jsx` renders a **Skill Map + Knowledge Graph** section with:
+    - Clickable concepts and full detail (description, why it matters, dependencies).
+    - A “Recommended next” rail that calls `/api/learning/recommend-next`.
 
-| Chunk | Focus |
+- **Learning paths**
+  - Backend: `learning_paths.py` defines two in‑code paths:
+    - `accounting` — Accounting 101 → GL → revenue recognition.
+    - `erp` — ERP 101 → legacy vs modern → Campfire’s place.
+  - API:
+    - `GET /api/learning/paths` — list of paths with module counts.
+    - `GET /api/learning/paths/{path_id}` — ordered modules with markdown content.
+  - Frontend: `App.jsx` pulls these endpoints and renders modules in the Learn view.
+
+- **Competitive intelligence (You.com)**
+  - Backend:
+    - `you_com.py` wraps You.com search and caching into `CompetitorIntel` and `YouComCache`.
+    - `server.py` exposes:
+      - `GET /api/intel/feed` — cached competitor feed.
+      - `POST /api/intel/refresh` — refresh competitor intel.
+      - `GET /api/intel/search` — live web + news search.
+      - `GET /api/intel/customer` and `/api/intel/explainer` — customer and explainer search with caching.
+  - Frontend: `App.jsx` shows:
+    - A live search box that calls `/api/intel/search`.
+    - A cached feed with “Refresh intel” calling `/api/intel/refresh`.
+
+- **Simulated ERP scenarios**
+  - Backend:
+    - `scenarios.py` + `scenario_engine/` implement templates, synthetic data, a rules engine, and an AI coach.
+    - Routes under `/api/scenarios`:
+      - `GET /api/scenarios` — list available scenario templates.
+      - `POST /api/scenarios/{scenario_id}/start` — start a run (DB + in‑memory fallback).
+      - `POST /api/scenarios/{run_id}/decision` — apply a choice and advance state.
+      - `POST /api/scenarios/{run_id}/coach` — ask an AI coach about the current run.
+      - `GET /api/scenarios/{run_id}/debrief` — debrief summary, metrics, strengths, and suggested next scenarios.
+    - Data is persisted in Postgres when available (`ERPScenarioRun`, `ERPScenarioEvent`) but also kept in an in‑memory store so scenarios still work if the DB is down.
+  - Frontend:
+    - `ScenariosView.jsx` — left rail of scenarios, runner panel, and debrief view.
+    - `ScenarioRunner.jsx` — step‑by‑step scenario UI with:
+      - Synthetic company snapshot.
+      - Synthetic datasets (invoices, integration events, failed webhooks, journal entries).
+      - Scenario choices and metrics (simulated hours, revenue error %, open recon issues, audit risk).
+      - AI Coach side panel (`/api/scenarios/{run_id}/coach`).
+    - `ScenarioDebrief.jsx` — post‑run metrics, strengths, opportunities, concepts to review, and recommended next scenarios.
+
+- **RAG + Gemini**
+  - `rag.py` implements a Gemini‑backed RAG pipeline over `KnowledgeItem` and `CompetitorIntel` using pgvector.
+  - `generate_daily_brief` creates a JSON daily brief from recent knowledge + intel.
+  - The endpoints that call this are not wired into the current UI, but the module and models (`KnowledgeItem`, `CompetitorIntel`, `YouComCache`, `SyncState`) are ready for use.
+
+---
+
+## Tech stack
+
+| Layer | Choice |
 |-------|--------|
-| **1. Learning pathways** | Accounting & ERP structured modules (Accounting 101 → GL → revenue recognition; ERP 101 → legacy → Campfire). Short text per module, “Ask the assistant,” optional quiz. **Learn** section in UI. |
-| **2. Glossary** | Curated terms (GL, revenue recognition, multi-entity, etc.) in DB or `knowledge_items`. “What is [term]?” in chat + optional glossary page. |
-| **3. Customer hub** | Customer cards (what they do, why Campfire, talking points). You.com + optional Gemini extraction. **“Prepare for [Customer]”** one-click brief. **Customers** section in UI. |
-| **4. Customer & market brief + You.com** | Customer & market brief (customer news + accounting/ERP industry). Extend You.com to customer search and accounting/ERP explainer search; cache and feed RAG. |
-| **5. Perplexity (optional)** | Optional second source for cited, up-to-date answers. |
-| **6. Firecrawl (last)** | Scrape and ingest customer sites, Crunchbase, accounting/ERP pages into `knowledge_items`. |
+| **API** | FastAPI (Python) with pgvector + SQLAlchemy |
+| **Frontend** | React + Vite (single‑page app served by FastAPI in production) |
+| **Database** | PostgreSQL with `pgvector` for embeddings and scenario state |
+| **Embeddings & LLM** | Google Gemini for embeddings, RAG answers, and daily brief generation |
+| **External intel** | You.com for competitive and explainer search, cached in Postgres |
+| **Hosting** | Render (see `render.yaml`) |
+
+Secrets (API keys, DB URLs) are read from the environment only (e.g. `.env` locally, Render env vars in production).
 
 ---
 
-## Business use case
+## Running locally
 
-Campfire teams need to:
-
-- **Learn** accounting and ERP fundamentals (GL, revenue recognition, legacy vs modern ERP, Campfire’s place).
-- **Prepare for customer calls** with one place for customer cards and a “Prepare for [Customer]” one-click brief.
-- **Stay current** on customer and market news (customer & market brief) and competitive intel.
-
-This product provides (by chunk):
-
-- **Chunk 1** — **Accounting & ERP learning paths** with structured modules, “Ask the assistant,” and optional quiz.
-- **Chunk 2** — **Glossary** for “What is [term]?” in chat and an optional glossary page.
-- **Chunk 3** — **Customer hub** with customer cards and “Prepare for [Customer]” one-click brief.
-- **Chunk 4** — **Customer & market brief** and extended You.com (customer + accounting/ERP search) for RAG.
-- **Chunk 5** — **Perplexity** (optional) for cited answers.
-- **Chunk 6** — **Firecrawl** (last): ingest from customer and educational URLs.
-
----
-
-## Tech stack and why
-
-| Layer | Choice | Why |
-|-------|--------|-----|
-| **API** | FastAPI (Python) | Async-ready, OpenAPI, simple dependency injection for DB and env. |
-| **Frontend** | React + Vite | Fast dev loop, proxy to API; sections: Learn, Customers, Ask, Intel. |
-| **Database** | PostgreSQL + pgvector | Relational data + vector similarity for RAG; knowledge, intel, glossary, customer data. |
-| **Embeddings & LLM** | Google Gemini | 768-d embeddings and generative answers; optional extraction, quiz generation. |
-| **Search / intel** | You.com | Competitor intel (existing); extend to customer + accounting/ERP search (Chunk 4); cache and feed RAG. |
-| **Optional** | Perplexity | Second source for cited answers (Chunk 5). |
-| **Optional (last)** | Firecrawl | Ingest customer and educational pages into `knowledge_items` (Chunk 6). |
-| **Scheduling** | Celery + Redis | Optional background tasks. |
-| **Hosting** | Render | Web service, worker, Postgres (pgvector) from `render.yaml`. |
-
-Secrets (API keys) are read from the environment only (e.g. `.env` locally, Render env vars in production).
-
----
-
-## AI integrations (by chunk)
-
-| Provider | Role | Chunk |
-|----------|------|--------|
-| **Gemini** | RAG embeddings + LLM; optional extraction (customer one-pagers), quiz generation. | All |
-| **You.com** | Competitor intel (existing); extend to customer + accounting/ERP search; cache and feed RAG. | 4 |
-| **Perplexity** | Optional: cited, up-to-date answers. | 5 |
-| **Firecrawl** | Optional, **last**: scrape and ingest customer sites, Crunchbase, accounting/ERP pages into `knowledge_items`. | 6 |
-| **Render** | Hosting + optional usage API. | — |
-
----
-
-## Technical implementation
-
-### High-level flow
-
-1. **Knowledge** — RAG uses `knowledge_items` (manual/seed for Chunks 1–2; optional Firecrawl in Chunk 6) and Gemini embeddings. Glossary in DB or `knowledge_items`.
-2. **Learning paths** — Stored as config or DB; modules have short text and optional quiz (Chunk 1).
-3. **Customer intel** — You.com per customer + optional Gemini extraction; customer cards and “Prepare for [Customer]” (Chunk 3).
-4. **Customer & market brief** — You.com (customer + accounting/ERP news) → structured brief (Chunk 4).
-5. **RAG Q&A** — Question → embedding → similarity over knowledge + intel (+ optional Perplexity in Chunk 5) → Gemini synthesis → answer + citations.
-
-### Core components (current + planned by chunk)
-
-- **`server.py`** — Health, `/api/ask`, `/api/brief`, `/api/intel/*`. **Chunk 1**: `/api/learning/paths`, `/api/learning/paths/:id/modules`. **Chunk 2**: `/api/glossary`. **Chunk 3**: `/api/customers`, `/api/customers/:id`, `/api/customers/:id/prepare-brief`. **Chunk 4**: `/api/brief/customer-market`; extend `you_com.py`.
-- **`rag.py`** — Embedding, pgvector, context from knowledge + intel, Gemini synthesis; glossary and customer context as chunks land.
-- **`models.py`** — `KnowledgeItem`, `CompetitorIntel`, `SyncState`; **Chunk 2**: glossary (or metadata on KnowledgeItem); **Chunk 3**: customer card / customer intel; **Chunk 6**: ingestion state if needed.
-- **Frontend** — **Learn** (Chunk 1), **Glossary** (Chunk 2), **Customers** (Chunk 3), **Ask**, **Intel**; briefs (existing + Chunk 4).
-
----
-
-## Technical details relevant to autonomy
-
-1. **Secrets only in environment** — All API keys via `os.environ` / `.env`.
-2. **Worker** — Celery for background ingest (e.g. Chunk 6) and refresh.
-3. **Resilient startup** — App starts even if DB is down; `/health` reports status.
-4. **RESTful API** — All features exposed as HTTP endpoints.
-5. **Single deploy** — `render.yaml` for web service, worker, Postgres (pgvector).
-6. **Caching** — Intel (competitor + customer) in DB; RAG and feeds read from DB.
-7. **No frontend secrets** — Backend proxies to You.com, Perplexity, etc.
-
----
-
-## Run the full stack (local)
-
-**Terminal 1 — Backend**
+**Backend**
 
 ```bash
-source .venv/bin/activate   # or .venv\Scripts\activate on Windows
+python -m venv .venv
+source .venv/bin/activate      # or .venv\Scripts\activate on Windows
 pip install -r requirements.txt
-docker-compose up -d postgres redis
+
+# Example Postgres URL; adjust to your local setup
 export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/onboardai
+
+# Optional: set keys for Gemini and You.com
+export GEMINI_API_KEY=...
+export YOU_API_KEY=...
+
 uvicorn server:app --reload --port 8000
 ```
 
-**Terminal 2 — Frontend** (from repo root)
+**Frontend (dev)** — from repo root:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Or from `frontend/`: `cd frontend && npm install && npm run dev`.
+or from `frontend/`:
 
-Open **http://localhost:3000**.
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
----
-
-## Deploy on Render
-
-1. Connect the repo; use the Blueprint from `render.yaml`.
-2. Set env vars: `DATABASE_URL`, `REDIS_URL`, `GEMINI_API_KEY`, `YOU_API_KEY`; optionally `PERPLEXITY_API_KEY`, `FIRECRAWL_API_KEY`, `RENDER_API_KEY`.
-3. Deploy.
+Open `http://localhost:3000`.
 
 ---
 
-## API keys (reference)
+## Key API endpoints
 
-| Key | Purpose | Chunk |
-|-----|--------|--------|
-| **GEMINI_API_KEY** | RAG embeddings + LLM ([Google AI Studio](https://aistudio.google.com/)). | All |
-| **YOU_API_KEY** | Competitor + (Chunk 4) customer + accounting/ERP search ([You.com API](https://api.you.com)). | 4 |
-| **PERPLEXITY_API_KEY** | Optional: cited answers ([Perplexity API](https://docs.perplexity.ai)). | 5 |
-| **FIRECRAWL_API_KEY** | Optional, **last**: ingest customer and educational pages. | 6 |
-| **RENDER_API_KEY** | Optional: usage (workspaces, services, bandwidth). | — |
+- **Health**
+  - `GET /health`
+
+- **Learning**
+  - `GET /api/learning/paths`
+  - `GET /api/learning/paths/{path_id}`
+  - `GET /api/learning/concept-graph`
+  - `GET /api/learning/concepts/{concept_id}`
+  - `GET /api/learning/recommend-next?completed=...`
+
+- **Competitive intelligence**
+  - `GET /api/intel/feed`
+  - `POST /api/intel/refresh`
+  - `GET /api/intel/search?q=...`
+  - `GET /api/intel/customer?name=...`
+  - `GET /api/intel/explainer?term=...`
+
+- **Simulated scenarios**
+  - `GET /api/scenarios`
+  - `POST /api/scenarios/{scenario_id}/start`
+  - `POST /api/scenarios/{run_id}/decision`
+  - `POST /api/scenarios/{run_id}/coach`
+  - `GET /api/scenarios/{run_id}/debrief`
+
+---
+
+## Environment variables
+
+| Key | Purpose |
+|-----|---------|
+| `DATABASE_URL` | Postgres connection string (includes pgvector) |
+| `GEMINI_API_KEY` | Gemini API key for embeddings, answers, and briefs |
+| `YOU_API_KEY` | You.com API key for competitive and explainer search |
+| `RENDER_API_KEY` | Optional: used by `/api/render/usage` to show Render usage |
 
 ---
 
 ## URLs
 
-- **API:** http://localhost:8000  
-- **Health:** http://localhost:8000/health  
-- **Frontend:** http://localhost:3000  
-- **PDF brief:** http://localhost:8000/static/onboarding_brief.pdf  
+- **API:** `http://localhost:8000`
+- **Health:** `http://localhost:8000/health`
+- **Frontend:** `http://localhost:3000`
+- **PDF brief:** `http://localhost:8000/static/onboarding_brief.pdf`

@@ -1,21 +1,40 @@
-# OnboardAI
+# Ignition — Lighting the fire for modern ERP fluency
 
-**AI-powered employee onboarding** — a single place for new hires to ask questions, see sync status from internal tools, and stay updated on competitor intelligence. Integrates **Composio**, **You.com**, and **Render**.
+**Ignition helps Campfire teams learn the accounting and ERP space and everything they need to know about Campfire’s major customers** — structured learning paths, customer hub with one-click briefs, glossary, and RAG-powered Q&A. Integrates **You.com**, **Gemini**, and optionally **Perplexity**; **Firecrawl** is last.
+
+---
+
+## Build order (chunks)
+
+Work is split into phases. **Start with Learning pathways**; **Firecrawl is last.**
+
+| Chunk | Focus |
+|-------|--------|
+| **1. Learning pathways** | Accounting & ERP structured modules (Accounting 101 → GL → revenue recognition; ERP 101 → legacy → Campfire). Short text per module, “Ask the assistant,” optional quiz. **Learn** section in UI. |
+| **2. Glossary** | Curated terms (GL, revenue recognition, multi-entity, etc.) in DB or `knowledge_items`. “What is [term]?” in chat + optional glossary page. |
+| **3. Customer hub** | Customer cards (what they do, why Campfire, talking points). You.com + optional Gemini extraction. **“Prepare for [Customer]”** one-click brief. **Customers** section in UI. |
+| **4. Customer & market brief + You.com** | Customer & market brief (customer news + accounting/ERP industry). Extend You.com to customer search and accounting/ERP explainer search; cache and feed RAG. |
+| **5. Perplexity (optional)** | Optional second source for cited, up-to-date answers. |
+| **6. Firecrawl (last)** | Scrape and ingest customer sites, Crunchbase, accounting/ERP pages into `knowledge_items`. |
 
 ---
 
 ## Business use case
 
-New employees at a company need fast, accurate answers about product, team, and strategy without hunting through Notion, GitHub, and Slack. They also benefit from curated competitor intelligence so they can speak to the market from day one.
+Campfire teams need to:
 
-**OnboardAI** gives them:
+- **Learn** accounting and ERP fundamentals (GL, revenue recognition, legacy vs modern ERP, Campfire’s place).
+- **Prepare for customer calls** with one place for customer cards and a “Prepare for [Customer]” one-click brief.
+- **Stay current** on customer and market news (customer & market brief) and competitive intel.
 
-- **Q&A over company knowledge** — Ask in natural language; get answers grounded in internal docs (Notion pages, GitHub READMEs, Slack context) with citations.
-- **Sync visibility** — See when internal sources were last synced and trigger a refresh (Composio: Notion, GitHub, Slack).
-- **Competitor intel feed** — A feed of research on competitors (e.g. Intercom, Zendesk, Gorgias) powered by You.com, cached and surfaced in both the feed and in RAG answers.
-- **Usage dashboard** — For ops: view workspaces, services, and bandwidth so the platform can be monitored without manual dashboard checks.
+This product provides (by chunk):
 
-**Velora** is a **fictional company** used in this demo. All data (Notion pages, GitHub repos, Slack messages, competitor names) is **synthetic**. The app simulates what a real company could do: connect real Composio/You.com/Render accounts and point them at real Notion/GitHub/Slack and real competitors; the architecture and flows stay the same.
+- **Chunk 1** — **Accounting & ERP learning paths** with structured modules, “Ask the assistant,” and optional quiz.
+- **Chunk 2** — **Glossary** for “What is [term]?” in chat and an optional glossary page.
+- **Chunk 3** — **Customer hub** with customer cards and “Prepare for [Customer]” one-click brief.
+- **Chunk 4** — **Customer & market brief** and extended You.com (customer + accounting/ERP search) for RAG.
+- **Chunk 5** — **Perplexity** (optional) for cited answers.
+- **Chunk 6** — **Firecrawl** (last): ingest from customer and educational URLs.
 
 ---
 
@@ -24,15 +43,28 @@ New employees at a company need fast, accurate answers about product, team, and 
 | Layer | Choice | Why |
 |-------|--------|-----|
 | **API** | FastAPI (Python) | Async-ready, OpenAPI, simple dependency injection for DB and env. |
-| **Frontend** | React + Vite | Fast dev loop, proxy to API; single-page app with clear sections for chat, sync, intel, usage. |
-| **Database** | PostgreSQL + pgvector | Relational data plus vector similarity (cosine) for RAG; one store for knowledge, intel, and sync state. |
-| **Embeddings & LLM** | Google Gemini | Single provider for 768-d embeddings and generative answers; good for citations and concise responses. |
-| **Integrations** | Composio | One API for Notion, GitHub, Slack; connected accounts and tool execution without building N connectors. |
-| **Search / intel** | You.com | Web search API for competitor research; results cached in DB and reused in RAG context. |
-| **Scheduling** | Celery + Redis | Cron-like sync every 6 hours; Redis as broker/backend so the worker can run on Render or any host. |
-| **Hosting** | Render | Web service, background worker, and Postgres (with pgvector) from one repo and `render.yaml`; suitable for small-team deploys. |
+| **Frontend** | React + Vite | Fast dev loop, proxy to API; sections: Learn, Customers, Ask, Intel. |
+| **Database** | PostgreSQL + pgvector | Relational data + vector similarity for RAG; knowledge, intel, glossary, customer data. |
+| **Embeddings & LLM** | Google Gemini | 768-d embeddings and generative answers; optional extraction, quiz generation. |
+| **Search / intel** | You.com | Competitor intel (existing); extend to customer + accounting/ERP search (Chunk 4); cache and feed RAG. |
+| **Optional** | Perplexity | Second source for cited answers (Chunk 5). |
+| **Optional (last)** | Firecrawl | Ingest customer and educational pages into `knowledge_items` (Chunk 6). |
+| **Scheduling** | Celery + Redis | Optional background tasks. |
+| **Hosting** | Render | Web service, worker, Postgres (pgvector) from `render.yaml`. |
 
-Secrets (API keys) are **never** hardcoded: they are read from the environment (e.g. `.env` locally, Render env vars in production). This keeps the app safe for autonomy and CI/CD.
+Secrets (API keys) are read from the environment only (e.g. `.env` locally, Render env vars in production).
+
+---
+
+## AI integrations (by chunk)
+
+| Provider | Role | Chunk |
+|----------|------|--------|
+| **Gemini** | RAG embeddings + LLM; optional extraction (customer one-pagers), quiz generation. | All |
+| **You.com** | Competitor intel (existing); extend to customer + accounting/ERP search; cache and feed RAG. | 4 |
+| **Perplexity** | Optional: cited, up-to-date answers. | 5 |
+| **Firecrawl** | Optional, **last**: scrape and ingest customer sites, Crunchbase, accounting/ERP pages into `knowledge_items`. | 6 |
+| **Render** | Hosting + optional usage API. | — |
 
 ---
 
@@ -40,110 +72,75 @@ Secrets (API keys) are **never** hardcoded: they are read from the environment (
 
 ### High-level flow
 
-1. **Knowledge ingestion** — Composio sync (manual trigger or Celery every 6h) pulls from Notion, GitHub, Slack into `knowledge_items` with optional Gemini embeddings. Seed script can load **fake Velora data** from `mock_data/` when no real integrations are configured.
-2. **Competitor intel** — You.com search runs for configured competitors/queries; results are stored in `competitor_intel` and shown in the feed. RAG can include these rows as context so answers cite both internal and external intel.
-3. **RAG Q&A** — User question → Gemini embedding → pgvector cosine similarity over `knowledge_items` → top-k chunks + recent `competitor_intel` → Gemini prompt → answer + citations.
-4. **Usage** — Render API (with `RENDER_API_KEY`) lists workspaces, services, and bandwidth; the backend exposes this as a single JSON endpoint so the frontend can show a usage section without hitting Render from the browser.
+1. **Knowledge** — RAG uses `knowledge_items` (manual/seed for Chunks 1–2; optional Firecrawl in Chunk 6) and Gemini embeddings. Glossary in DB or `knowledge_items`.
+2. **Learning paths** — Stored as config or DB; modules have short text and optional quiz (Chunk 1).
+3. **Customer intel** — You.com per customer + optional Gemini extraction; customer cards and “Prepare for [Customer]” (Chunk 3).
+4. **Customer & market brief** — You.com (customer + accounting/ERP news) → structured brief (Chunk 4).
+5. **RAG Q&A** — Question → embedding → similarity over knowledge + intel (+ optional Perplexity in Chunk 5) → Gemini synthesis → answer + citations.
 
-### Core components
+### Core components (current + planned by chunk)
 
-- **`server.py`** — FastAPI app: health, `/api/ask`, `/api/sync/status`, `/api/sync/trigger`, `/api/intel/feed`, `/api/intel/refresh`, `/api/render/usage`. Loads `.env` so local runs work without exporting keys. Lifespan creates tables and inits pgvector; if DB is unavailable, the app still starts and reports DB status via `/health`.
-- **`rag.py`** — Embedding (Gemini), pgvector similarity search, context formatting, and Gemini synthesis with citations. Falls back to mock embeddings and concatenation when the key is missing or the model fails.
-- **`composio_sync.py`** — Lists Composio connected accounts, runs Notion/GitHub/Slack tools, upserts into `knowledge_items` (with optional embeddings), and updates `sync_state` (last_sync_at, next_sync_at).
-- **`you_com.py`** — You.com search, parse web results, and insert into `competitor_intel`; used by `/api/intel/refresh` and by RAG for competitor context.
-- **`render_usage.py`** — Calls Render API (owners, services, metrics/bandwidth) with Bearer token from env; returns a safe payload (no keys). Used by `/api/render/usage`.
-- **`worker.py`** — Celery app with beat: one task `sync_data_sources` runs every 6 hours and calls Composio sync. Broker/backend from `REDIS_URL`.
-- **`models.py`** — SQLAlchemy: `KnowledgeItem` (source, content, embedding 768-d, metadata), `CompetitorIntel` (competitor_name, intel_type, content, source_url), `SyncState` (key-value for last/next sync).
-- **Frontend** — React app: health + sync status + “Trigger sync”, chat (sample questions + freeform), intel feed + “Refresh intel”, Render usage block. Vite proxy sends `/api` and `/health` to the backend.
-
-### Data and demo behavior
-
-- **Velora** and all content in `mock_data/` (e.g. `velora_notion.json`, `velora_github.json`, `velora_slack.json`) are **fake**. They exist so the app runs and demos RAG/sync/intel without real Composio or You.com setup.
-- With real keys: point Composio at real Notion/GitHub/Slack, set You.com and optional RENDER_API_KEY; the same code paths run against live data and Render.
+- **`server.py`** — Health, `/api/ask`, `/api/brief`, `/api/intel/*`. **Chunk 1**: `/api/learning/paths`, `/api/learning/paths/:id/modules`. **Chunk 2**: `/api/glossary`. **Chunk 3**: `/api/customers`, `/api/customers/:id`, `/api/customers/:id/prepare-brief`. **Chunk 4**: `/api/brief/customer-market`; extend `you_com.py`.
+- **`rag.py`** — Embedding, pgvector, context from knowledge + intel, Gemini synthesis; glossary and customer context as chunks land.
+- **`models.py`** — `KnowledgeItem`, `CompetitorIntel`, `SyncState`; **Chunk 2**: glossary (or metadata on KnowledgeItem); **Chunk 3**: customer card / customer intel; **Chunk 6**: ingestion state if needed.
+- **Frontend** — **Learn** (Chunk 1), **Glossary** (Chunk 2), **Customers** (Chunk 3), **Ask**, **Intel**; briefs (existing + Chunk 4).
 
 ---
 
 ## Technical details relevant to autonomy
 
-These choices make the system scriptable, deployable, and observable without manual steps.
-
-1. **Secrets only in environment**  
-   All API keys (Gemini, Composio, You.com, Render) are read via `os.environ` (or `.env` loaded at startup). Nothing is logged or returned in API responses. Safe for automated deploys and secret managers.
-
-2. **Scheduled worker**  
-   Celery Beat runs Composio sync every 6 hours. No human trigger required for periodic ingestion; the worker can be scaled or disabled via Render/Redis.
-
-3. **Resilient startup**  
-   If the database is down, the API still starts: lifespan catches DB errors, and `/health` reports `database: disconnected`. Sync/intel/ask endpoints return fallbacks or errors instead of crashing. This allows the frontend and usage endpoint to work even when Postgres is not yet available.
-
-4. **RESTful API**  
-   All capabilities are exposed as HTTP endpoints. The frontend is one consumer; scripts or other services can call the same API for ask, sync trigger, intel refresh, or usage.
-
-5. **Single deploy descriptor**  
-   `render.yaml` defines web service, worker, and Postgres (with pgvector). Render uses it for one-repo deploy; env vars are configured in the dashboard (or linked from the DB). No custom runbooks for “how to start the stack.”
-
-6. **Caching and idempotency**  
-   Competitor intel is stored in the DB; RAG and the feed read from the DB. Sync writes into `knowledge_items` and updates `sync_state`. Repeated triggers or refreshes are safe and reduce external API calls.
-
-7. **No frontend secrets**  
-   The browser never sees API keys. The backend proxies to Composio, You.com, and Render; the frontend only talks to the backend (direct or via Vite proxy).
+1. **Secrets only in environment** — All API keys via `os.environ` / `.env`.
+2. **Worker** — Celery for background ingest (e.g. Chunk 6) and refresh.
+3. **Resilient startup** — App starts even if DB is down; `/health` reports status.
+4. **RESTful API** — All features exposed as HTTP endpoints.
+5. **Single deploy** — `render.yaml` for web service, worker, Postgres (pgvector).
+6. **Caching** — Intel (competitor + customer) in DB; RAG and feeds read from DB.
+7. **No frontend secrets** — Backend proxies to You.com, Perplexity, etc.
 
 ---
 
 ## Run the full stack (local)
-
-**Velora is fake; the app is real.** Use two terminals from the project root.
 
 **Terminal 1 — Backend**
 
 ```bash
 source .venv/bin/activate   # or .venv\Scripts\activate on Windows
 pip install -r requirements.txt
-# Optional: start DB + Redis, then seed (see below)
+docker-compose up -d postgres redis
+export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/onboardai
 uvicorn server:app --reload --port 8000
 ```
 
-**Terminal 2 — Frontend**
+**Terminal 2 — Frontend** (from repo root)
 
 ```bash
-cd frontend
 npm install
 npm run dev
 ```
 
-Open **http://localhost:3000**. The UI shows chat, sync status + “Trigger sync”, Competitive Intelligence Feed + “Refresh intel”, and Platform Usage (or an error if `RENDER_API_KEY` is not set).
+Or from `frontend/`: `cd frontend && npm install && npm run dev`.
 
-**Optional — database and seed (for full RAG/sync/intel):**
-
-```bash
-docker-compose up -d postgres redis
-export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/onboardai
-python seed_data.py
-```
-
-Seed uses **fake Velora data** from `mock_data/` so the app works without real Composio. With real keys, sync and intel refresh populate from live sources.
+Open **http://localhost:3000**.
 
 ---
 
 ## Deploy on Render
 
-1. Connect the repo to Render; use the **Blueprint** from `render.yaml` (web service, worker, Postgres with pgvector).
-2. Set env vars in the dashboard: `DATABASE_URL` (from the Postgres service), `REDIS_URL`, and when ready: `GEMINI_API_KEY`, `COMPOSIO_API_KEY`, `COMPOSIO_PROJECT_ID`, `YOU_API_KEY`, `RENDER_API_KEY`.
-3. Deploy. The web service serves the API; the worker runs Celery with beat for the 6-hour sync.  
-   **Note:** `render.yaml` is a config file for Render, not a shell command.
+1. Connect the repo; use the Blueprint from `render.yaml`.
+2. Set env vars: `DATABASE_URL`, `REDIS_URL`, `GEMINI_API_KEY`, `YOU_API_KEY`; optionally `PERPLEXITY_API_KEY`, `FIRECRAWL_API_KEY`, `RENDER_API_KEY`.
+3. Deploy.
 
 ---
 
 ## API keys (reference)
 
-| Key | Purpose |
-|-----|--------|
-| **GEMINI_API_KEY** | RAG embeddings and answer generation ([Google AI Studio](https://aistudio.google.com/)). |
-| **COMPOSIO_API_KEY** / **COMPOSIO_PROJECT_ID** | Notion, GitHub, Slack via [Composio](https://app.composio.dev). |
-| **YOU_API_KEY** | Competitor search via [You.com API](https://api.you.com). |
-| **RENDER_API_KEY** | Usage (workspaces, services, bandwidth) from Render Dashboard → Account Settings → API Keys. |
-
-The app works with no keys: seed uses fake Velora data and mock embeddings for local demos.
+| Key | Purpose | Chunk |
+|-----|--------|--------|
+| **GEMINI_API_KEY** | RAG embeddings + LLM ([Google AI Studio](https://aistudio.google.com/)). | All |
+| **YOU_API_KEY** | Competitor + (Chunk 4) customer + accounting/ERP search ([You.com API](https://api.you.com)). | 4 |
+| **PERPLEXITY_API_KEY** | Optional: cited answers ([Perplexity API](https://docs.perplexity.ai)). | 5 |
+| **FIRECRAWL_API_KEY** | Optional, **last**: ingest customer and educational pages. | 6 |
+| **RENDER_API_KEY** | Optional: usage (workspaces, services, bandwidth). | — |
 
 ---
 
@@ -151,18 +148,5 @@ The app works with no keys: seed uses fake Velora data and mock embeddings for l
 
 - **API:** http://localhost:8000  
 - **Health:** http://localhost:8000/health  
-- **Frontend (demo):** http://localhost:3000  
+- **Frontend:** http://localhost:3000  
 - **PDF brief:** http://localhost:8000/static/onboarding_brief.pdf  
-
----
-
-## Integrations
-
-| Provider | Role |
-|----------|------|
-| **Gemini** | RAG embeddings + LLM |
-| **Composio** | Notion, GitHub, Slack sync + manual trigger; Celery worker sync every 6 hours |
-| **You.com** | Competitor intel feed + refresh + RAG context |
-| **Render** | Hosting + usage API (workspaces, services, bandwidth) |
-
-The demo uses a **fictional company (Velora)** and synthetic data; you can connect real Composio, You.com, and Render accounts for production use.

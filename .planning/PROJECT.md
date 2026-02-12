@@ -1,135 +1,123 @@
-# Campfire ERP Onboarding Assistant
+# Ignition — Lighting the fire for modern ERP fluency
 
 ## What This Is
 
-An intelligent onboarding assistant for new Campfire.ai employees that assesses their ERP knowledge, teaches foundational concepts in progressive building blocks, and connects them to Campfire's specific context through real company data. The system adapts explanations based on knowledge level and supplements with real-time industry research.
+Ignition is a learning product dedicated to the **accounting space**, **ERP space**, and everything needed to know about **Campfire’s major customers**. It combines structured learning paths, a customer hub with one-click briefs, a glossary, and RAG-powered Q&A fed by You.com, optional Perplexity, and optional ingestion (Firecrawl last).
 
 ## Core Value
 
-New Campfire employees gain ERP fluency at their own pace through personalized learning that meets them where they are - from "What does ERP stand for?" to understanding Campfire's competitive positioning against NetSuite - all grounded in real company knowledge and industry context.
+Campfire employees and stakeholders learn accounting and ERP fundamentals at their own pace, get instant “what to know before a call” briefs for key customers, and stay current on customer and market news—all in one place, with answers tailored to knowledge level and cited sources.
 
-## Requirements
+---
+
+## Phased implementation (chunks)
+
+Work is split into chunks. **Start with Learning pathways**; **Firecrawl is last.**
+
+| Chunk | Focus | Deliverables |
+|-------|--------|--------------|
+| **1. Learning pathways** | Accounting & ERP structured learning | Modules (Accounting 101 → GL → revenue recognition; ERP 101 → legacy → Campfire), short text per module, “Ask the assistant,” optional quiz. Learn section in UI. |
+| **2. Glossary** | Curated terms for chat + browse | Terms (GL, revenue recognition, multi-entity, etc.) in DB or `knowledge_items`; “What is [term]?” in chat; optional glossary page. |
+| **3. Customer hub** | Customer cards + prepare brief | Customer cards (what they do, why Campfire, talking points); You.com + optional Gemini extraction; “Prepare for [Customer]” one-click brief. Customers section in UI. |
+| **4. Customer & market brief + You.com** | Briefs and search extension | Customer & market brief (customer news + accounting/ERP industry via You.com + structured-brief pattern). Extend You.com to customer search and accounting/ERP explainer search; cache and feed RAG. |
+| **5. Perplexity (optional)** | Second source for answers | Optional Perplexity integration for cited, up-to-date answers (e.g. “Explain revenue recognition”, “What does Replit do?”). |
+| **6. Firecrawl (last)** | Ingest from URLs | Scrape and ingest customer sites, Crunchbase, accounting/ERP pages into `knowledge_items`. Optional; implement after above. |
+
+---
+
+## Requirements by chunk
 
 ### Validated
 
 (None yet — ship to validate)
 
-### Active
+### Chunk 1 — Learning pathways
 
-**Assessment & Personalization:**
-- [ ] Explicit assessment questions to gauge ERP knowledge level
-- [ ] Building block progression (basic → intermediate → advanced concepts)
-- [ ] Answer simplification based on detected knowledge level
-- [ ] Progressive learning path that builds on confirmed understanding
+- [ ] **Accounting path**: Structured modules (e.g. Accounting 101 → General ledger → Revenue recognition); short text per module.
+- [ ] **ERP path**: Structured modules (e.g. ERP 101 → Legacy vs modern → Campfire’s place); short text per module.
+- [ ] “Ask the assistant” from each module (suggested questions or pass module context into chat).
+- [ ] Optional quiz per module or at path end (Gemini-generated or fixed).
+- [ ] **Learn** section in UI: list paths, show modules, next/previous, optional completion state.
+- [ ] API: e.g. `GET /api/learning/paths`, `GET /api/learning/paths/:id/modules`, optionally `POST /api/learning/quiz` (generate or serve quiz).
 
-**ERP Knowledge Foundation:**
-- [ ] Fundamental concepts: What is ERP, why it matters, core components
-- [ ] Traditional ERP landscape: NetSuite, SAP, Oracle, QuickBooks
-- [ ] Modern/AI-native ERP evolution and industry trends
-- [ ] Finance & accounting ERP specifics (general ledger, revenue automation, etc.)
-- [ ] Campfire's approach and competitive differentiators
+### Chunk 2 — Glossary
 
-**Company Context Integration:**
-- [ ] Real Notion sync: Company docs, projects, rules, onboarding materials
-- [ ] Real Slack sync: Team conversations, culture, historical context
-- [ ] RAG pipeline retrieves relevant company-specific examples
-- [ ] Citations link back to specific Notion pages and Slack threads
+- [ ] Curated terms (GL, revenue recognition, multi-entity, ERP, etc.) stored in DB or `knowledge_items` with metadata (e.g. `type: glossary`).
+- [ ] “What is [term]?” in chat returns definition + related terms (RAG or direct lookup).
+- [ ] Optional glossary page in UI: search/filter, list terms.
+- [ ] API: e.g. `GET /api/glossary`, `GET /api/glossary/:term` or rely on RAG with glossary in knowledge.
 
-**You.com Intelligence:**
-- [ ] Real-time ERP industry trends and market intelligence
-- [ ] Learning resource discovery (articles, guides, comparisons)
-- [ ] Competitor analysis (NetSuite, SAP, QuickBooks features/positioning)
-- [ ] Supplemental explanations with authoritative external sources
+### Chunk 3 — Customer hub
 
-**Agent Capabilities:**
-- [ ] Interactive Q&A that adapts to user knowledge level
-- [ ] Composio integrations sync Notion and Slack automatically
-- [ ] Scheduled syncs keep company knowledge current
-- [ ] Simple React interface for conversational learning
+- [ ] Customer cards: what they do, why Campfire, talking points, “What to know before a call.”
+- [ ] Data from You.com search per customer + optional Gemini extraction (one-pager from search results).
+- [ ] “Prepare for [Customer]” one-click brief: customer card + recent intel + suggested questions.
+- [ ] **Customers** section in UI: list customers, card detail, “Prepare for [Customer]” button.
+- [ ] API: e.g. `GET /api/customers`, `GET /api/customers/:id`, `POST /api/customers/:id/prepare-brief`; customer intel model or extended intel table.
 
-**Infrastructure:**
-- [ ] Deployed on Render with background jobs
-- [ ] PostgreSQL with pgvector for semantic search
-- [ ] FastAPI backend for API and agent logic
-- [ ] Background worker for scheduled syncs
+### Chunk 4 — Customer & market brief + You.com
+
+- [ ] **Customer & market brief**: Separate brief for customer news + accounting/ERP industry (You.com + same structured-brief pattern as product brief).
+- [ ] Extend You.com to **customer search** (per major customer) and **accounting/ERP explainer** search; cache results in DB and feed into RAG.
+- [ ] API: e.g. `GET /api/brief/customer-market`; extend `you_com.py` with customer and explainer queries.
+
+### Chunk 5 — Perplexity (optional)
+
+- [ ] Optional Perplexity API integration for selected queries (e.g. “Explain revenue recognition”, “What does Replit do?”).
+- [ ] Blend or fallback with Gemini RAG when Perplexity is enabled; cited answers in response.
+
+### Chunk 6 — Firecrawl (last)
+
+- [ ] Firecrawl (or Jina) integration: scrape and ingest customer sites, Crunchbase, accounting/ERP pages into `knowledge_items`.
+- [ ] Background or on-demand job to refresh ingested URLs; embeddings updated for RAG.
+
+### Cross-cutting
+
+- [ ] Assessment questions for ERP/accounting/customer familiarity; building block progression and answer simplification by knowledge level.
+- [ ] Infrastructure: Render, PostgreSQL + pgvector, FastAPI, React (Learn, Customers, Ask, Intel).
 
 ### Out of Scope
 
 - Multi-company support — Campfire-only for now
 - User authentication — focus on core learning experience first
-- Progress tracking across sessions — stateless Q&A for v1
+- Progress tracking across sessions — optional later
 - Mobile app — web interface sufficient
-- Real-time collaboration — async learning focus
-- Advanced analytics — track basics only
+
+---
 
 ## Context
 
 **About Campfire.ai:**
 - AI-native ERP platform for finance & accounting teams
-- Competing with legacy systems (NetSuite, QuickBooks, Oracle, SAP)
-- Built for venture-funded startups seeking high-velocity finance operations
-- Ember AI: Conversational interface powered by Anthropic's Claude
-- Key differentiators: Automation, multi-entity management, intuitive AI-first design
 - Customers: Replit, PostHog, Decagon, Heidi Health, CloudZero, and 100+ companies
-- Funding: $100M+ raised (Series B led by Accel & Ribbit)
+- Competing with NetSuite, QuickBooks, Oracle, SAP; key differentiators: automation, multi-entity, Ember AI (Claude)
 
 **Problem Space:**
-- New employees at ERP companies need to understand:
-  1. ERP fundamentals (what it is, why it matters)
-  2. Industry landscape (competitors, legacy vs modern)
-  3. Company-specific approach (how Campfire differs)
-  4. Internal context (projects, culture, rules)
-- Knowledge levels vary wildly (finance background vs software eng vs sales)
-- Generic onboarding doesn't adapt to individual understanding
-- Manual onboarding consumes founder/manager time
-
-**Learning Philosophy:**
-- **Building blocks**: Start with "What is ERP?" and progressively build complexity
-- **Adaptive depth**: Simplify for beginners, add nuance for experienced folks
-- **Real examples**: Connect concepts to actual Campfire projects (from Notion)
-- **Industry context**: Supplement with You.com research on ERP trends
-- **Company grounding**: Use real Slack conversations to show culture/context
+- Need to understand accounting and ERP fundamentals, not just Campfire
+- Need to know major customers (what they do, why Campfire, talking points) before calls
+- Need a single place for customer + market news and learning
 
 **Technical Approach:**
-- **Composio**: Sync real Notion (company docs) and Slack (team conversations)
-- **You.com**: Fetch ERP industry intelligence, learning resources, competitor analysis
-- **Render**: Host FastAPI backend + PostgreSQL + cron jobs
-- **RAG Pipeline**: Semantic search over company knowledge + external research
-- **Free/Sponsored APIs**: Gemini for embeddings/LLM, sponsor credits where available
-
-**Assessment Strategy:**
-Explicit questions before diving into topics:
-- "Have you worked with ERP systems before?"
-- "Do you know what general ledger means?"
-- "Are you familiar with NetSuite or QuickBooks?"
-- "What's your role at Campfire?" (finance vs eng vs sales context)
-
-Based on answers, adjust:
-- Vocabulary (avoid jargon for beginners)
-- Depth (overview vs technical details)
-- Examples (analogies for concepts vs direct explanations)
-- Resources (introductory articles vs advanced comparisons)
+- **Chunks 1–4**: You.com, Gemini, existing RAG; learning paths, glossary, customer hub, customer & market brief.
+- **Chunk 5**: Optional Perplexity for cited answers.
+- **Chunk 6 (last)**: Firecrawl (or Jina) for URL ingestion into `knowledge_items`.
 
 ## Constraints
 
-- **Real data only**: No fake/mock company data - use actual Notion/Slack content
-- **Knowledge adaptability**: Must genuinely adjust to user level, not one-size-fits-all
-- **Composio access**: Requires proper Notion and Slack authentication
-- **API costs**: Prefer free tiers (Gemini), use sponsor credits wisely
-- **Simplicity**: Focus on core learning experience, not complex features
+- **Knowledge adaptability**: Answers must adapt to user level (beginner / intermediate / advanced)
+- **API costs**: Prefer free tiers; Perplexity and Firecrawl optional
+- **Simplicity**: Clear sections (Learn, Customers, Ask, Intel) without unnecessary complexity
 
 ## Key Decisions
 
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| Explicit assessment questions | Clear signal of knowledge level vs inferring from behavior | — Pending |
-| Building block progression | ERP concepts have natural hierarchy (basics → advanced) | — Pending |
-| Real Notion/Slack data | Authentic company context beats fabricated examples | — Pending |
-| You.com for learning resources | Industry trends + authoritative sources supplement teaching | — Pending |
-| Simplified answers + resources | Dual approach: adjust explanation AND provide external learning | — Pending |
-| FastAPI + PostgreSQL + React | Familiar stack, pgvector for semantic search | — Pending |
-| Gemini for embeddings/LLM | Free tier sufficient, avoid OpenAI costs | — Pending |
-| No progress tracking v1 | Stateless Q&A simpler to build, iterate based on usage | — Pending |
+| Decision | Rationale |
+|----------|-----------|
+| Learning pathways first | Establishes structure and content; no new infra. |
+| Glossary before customer hub | Shared RAG/knowledge foundation; simple to add. |
+| Customer hub before Firecrawl | You.com + Gemini enough for customer cards; Firecrawl adds richness later. |
+| Firecrawl last | Ingest is optional and more complex; build value with paths, glossary, customers, briefs first. |
+| You.com extended in Chunk 4 | Customer & market brief and RAG enrichment in same chunk. |
+| Perplexity optional | Better cited answers when enabled; not required for core flow. |
 
 ---
-*Last updated: 2026-02-11 after vision pivot to Campfire ERP onboarding*
+*Last updated: 2026-02-11 — phased chunks: Learning pathways first, Firecrawl last*

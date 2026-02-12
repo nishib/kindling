@@ -1,0 +1,12 @@
+{
+  "name": "onboarding-tool",
+  "private": true,
+  "description": "Campfire ERP Onboarding Assistant — frontend lives in ./frontend",
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "install:frontend": "cd frontend && npm install",
+    "postinstall": "npm run install:frontend",
+    "preview": "cd frontend && npm run preview"
+  }
+}

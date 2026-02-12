@@ -114,7 +114,10 @@ def _first_sentence(text: str, max_len: int = 200) -> str:
     return text[:max_len].strip() + ("..." if len(text) > max_len else "")
 
 
-_COMPETITOR_KEYWORDS = ("intercom", "zendesk", "gorgias", "competitor", "competitors", "pricing", "competition", "market", "rival")
+_COMPETITOR_KEYWORDS = (
+    "netsuite", "sap", "quickbooks", "oracle", "competitor", "competitors",
+    "pricing", "competition", "market", "rival", "erp", "compare",
+)
 
 
 def _is_competitor_question(question: str) -> bool:
@@ -127,7 +130,7 @@ def _enhance_query_for_competitive_search(question: str) -> str:
     """
     Transform user's question into a competitive/market-focused search query.
     Automatically detects question topic and adds relevant competitive/market context.
-    Example: "What is Velora's main product?" -> "AI customer support main product competition market alternatives"
+    Example: "What is our main product?" -> "main product competition market alternatives"
     """
     q = (question or "").strip().lower()
 
@@ -135,56 +138,53 @@ def _enhance_query_for_competitive_search(question: str) -> str:
     q_cleaned = q
     for phrase in ["what is", "what are", "what's", "who is", "who are", "how does", "tell me about", "give me"]:
         q_cleaned = q_cleaned.replace(phrase, "")
-    q_cleaned = q_cleaned.replace("velora's", "").replace("velora", "")
     q_cleaned = q_cleaned.replace("our", "").replace("the", "")
     q_cleaned = q_cleaned.replace("?", "").strip()
 
     # Topic-based competitive query enhancement
     # Product & Features
     if any(k in q for k in ["product", "platform", "solution", "offering"]):
-        return f"AI customer support {q_cleaned} competition market alternatives comparison"
+        return f"ERP finance accounting {q_cleaned} NetSuite SAP QuickBooks comparison market"
 
     # Pricing & Business Model
     elif any(k in q for k in ["pricing", "price", "cost", "plan", "subscription", "tier"]):
-        return f"customer support software {q_cleaned} pricing comparison competitors cost analysis"
+        return f"ERP accounting software {q_cleaned} pricing NetSuite QuickBooks comparison"
 
     # Features & Capabilities
-    elif any(k in q for k in ["feature", "capability", "function", "tool", "automation"]):
-        return f"AI customer support {q_cleaned} competitive analysis features comparison market"
+    elif any(k in q for k in ["feature", "capability", "function", "tool", "automation", "general ledger", "revenue"]):
+        return f"ERP finance {q_cleaned} competitive analysis NetSuite SAP features comparison"
 
     # Competitors
-    elif any(k in q for k in ["competitor", "competition", "rival", "versus", "vs", "intercom", "zendesk", "gorgias"]):
-        return f"AI customer support {q_cleaned} competitive landscape market share comparison"
+    elif any(k in q for k in ["competitor", "competition", "rival", "versus", "vs", "netsuite", "sap", "quickbooks", "oracle"]):
+        return f"ERP {q_cleaned} competitive landscape NetSuite SAP QuickBooks Oracle market"
 
     # Tech Stack & Architecture
     elif any(k in q for k in ["tech stack", "technology", "architecture", "infrastructure", "framework", "database"]):
-        return f"AI customer support platform {q_cleaned} technology stack architecture comparison industry standards"
+        return f"ERP platform {q_cleaned} technology stack finance accounting industry"
 
     # Team & Company
     elif any(k in q for k in ["team", "founder", "employee", "people", "culture", "hiring"]):
-        return f"AI customer support startup {q_cleaned} company team funding market"
+        return f"ERP startup Campfire {q_cleaned} company team funding market"
 
     # Roadmap & Strategy
     elif any(k in q for k in ["roadmap", "future", "plan", "strategy", "vision", "upcoming"]):
-        return f"AI customer support industry {q_cleaned} trends roadmap competitive strategy market direction"
+        return f"ERP industry {q_cleaned} trends AI-native finance accounting market direction"
 
     # Sales & Go-to-Market
     elif any(k in q for k in ["sales", "customer", "client", "deal", "revenue", "growth"]):
-        return f"AI customer support market {q_cleaned} sales strategy customer acquisition competitive positioning"
+        return f"ERP market {q_cleaned} sales venture-funded startups finance operations"
 
     # Onboarding & Implementation
     elif any(k in q for k in ["onboard", "implementation", "setup", "getting started", "integration"]):
-        return f"AI customer support {q_cleaned} onboarding implementation best practices industry comparison"
+        return f"ERP {q_cleaned} onboarding implementation best practices finance"
 
     # Daily Brief / Summary requests
     elif any(k in q for k in ["brief", "summary", "update", "news", "recent"]):
-        return f"AI customer support industry news updates competitive landscape market trends recent"
+        return f"ERP finance accounting industry news updates competitive landscape trends"
 
-    # Generic enhancement: add market/competition context
+    # Generic enhancement: add ERP market context
     else:
-        return f"AI customer support {q_cleaned} market competition alternatives industry analysis"
-
-    return q.strip()
+        return f"ERP finance accounting {q_cleaned} market NetSuite SAP QuickBooks alternatives"
 
 
 def _recent_knowledge_for_brief(db: Session, limit: int = _TOP_K_BRIEF) -> list:
@@ -204,23 +204,15 @@ def _competitor_context_items(db: Session, question: str, limit: int = 5) -> lis
     """
     Fetch competitor context for RAG: cached DB intel + live You.com search.
 
-    AUTOMATIC COMPETITIVE SEARCH:
-    This function runs automatically for EVERY question asked by the user.
-    It intelligently detects the question topic (product, pricing, tech stack, team, etc.)
-    and automatically runs a you.com web search with competitive/market context.
-
-    For example:
-    - "What's our pricing strategy?" → searches "customer support software pricing comparison competitors"
-    - "What's our tech stack?" → searches "AI customer support platform technology stack architecture comparison"
-    - "Who are our competitors?" → searches "AI customer support competitive landscape market share"
-
-    This ensures every answer includes current market intelligence and competitive context.
+    Uses enhanced You.com integration: customer search (Replit, PostHog, etc.) and
+    accounting/ERP explainer search when the question mentions them; results are
+    cached in YouComCache. Also runs general competitive search with query enhancement.
     """
     from sqlalchemy import select
-    from you_com import live_search_for_rag
+    from you_com import live_search_for_rag_with_customer_and_explainer
 
     items = []
-    # Always include cached intel (fast)
+    # Always include cached competitor intel (fast)
     stmt = (
         select(CompetitorIntel)
         .order_by(CompetitorIntel.created_at.desc())
@@ -234,19 +226,41 @@ def _competitor_context_items(db: Session, question: str, limit: int = 5) -> lis
             "snippet": (r.content or "")[:300],
             "content": r.content,
         })
-    # ALWAYS add live You.com web + news (up to 5 items) to augment with current info
-    # This ensures every question gets enriched with live market/competitive context
-    # Transform the question into a competitive search query based on topic detection
+    # Enhanced: customer + explainer + general live search (cached where possible)
     enhanced_query = _enhance_query_for_competitive_search(question)
-    live = live_search_for_rag(enhanced_query, max_items=5)
-    for c in live[:5]:
+    live = live_search_for_rag_with_customer_and_explainer(
+        question, db=db, enhanced_query=enhanced_query, max_items=5, customer_explainer_max=2
+    )
+    for c in live[:8]:
         items.append(c)
     return items
 
 
-def generate_answer(question: str, context_items: list, competitor_context: Optional[list] = None) -> tuple[str, list]:
+_LEVEL_INSTRUCTIONS = {
+    "beginner": (
+        "The user is new to ERP and finance concepts. Use simple language, avoid jargon, "
+        "and explain acronyms (e.g. ERP = Enterprise Resource Planning). Use short sentences and analogies where helpful."
+    ),
+    "intermediate": (
+        "The user has some familiarity with business systems. Use standard terminology but "
+        "briefly clarify domain terms when relevant. Balance clarity with depth."
+    ),
+    "advanced": (
+        "The user is experienced with ERP or finance. You may use technical terms (GL, revenue recognition, "
+        "multi-entity, etc.) and include nuance, comparisons, and competitive context where appropriate."
+    ),
+}
+
+
+def generate_answer(
+    question: str,
+    context_items: list,
+    competitor_context: Optional[list] = None,
+    knowledge_level: Optional[str] = None,
+) -> tuple[str, list]:
     """
     Use Gemini to synthesize an answer from retrieved contexts + optional competitor intel.
+    knowledge_level: beginner | intermediate | advanced (Phase 1 – adapt vocabulary and depth).
     Returns (answer_text, citations). citations: list of {source, title, snippet} for UI.
     """
     client = _client()
@@ -255,9 +269,13 @@ def generate_answer(question: str, context_items: list, competitor_context: Opti
         contexts.extend(competitor_context)
     citations = [{"source": c["source"], "title": c["title"], "snippet": c["snippet"]} for c in contexts]
 
+    level_instruction = ""
+    if knowledge_level and knowledge_level in _LEVEL_INSTRUCTIONS:
+        level_instruction = f"\nAdaptation: {_LEVEL_INSTRUCTIONS[knowledge_level]}"
+
     if not client or not contexts:
         if not contexts:
-            return "I couldn't find relevant information in the knowledge base. Try rephrasing or ask about Velora's product, team, or competitors.", []
+            return "I couldn't find relevant information in the knowledge base. Please try rephrasing your question.", []
         # Fallback: short synthesis from top context (no dump)
         c0 = contexts[0]
         fallback = f"According to [{c0['source']}: {c0['title']}], {_first_sentence(c0.get('snippet') or c0.get('content', ''))}"
@@ -274,13 +292,17 @@ def generate_answer(question: str, context_items: list, competitor_context: Opti
         context_blob = "\n\n---\n\n".join(
             f"[Source: {c['source']} – {c['title']}]\n{c['content']}" for c in contexts
         )
-        prompt = f"""You are an onboarding assistant for Velora, an AI customer support startup.
+        prompt = f"""You are the Campfire ERP Onboarding Assistant. You help new Campfire employees learn:
+- ERP fundamentals (what ERP is, why it matters, core components like general ledger, revenue automation).
+- Traditional ERP landscape (NetSuite, SAP, Oracle, QuickBooks) vs modern/AI-native ERP.
+- Campfire's approach: AI-native ERP for finance & accounting, Ember AI (Claude-powered), multi-entity, automation; competing with legacy systems for venture-funded startups.
+{level_instruction}
 
 Rules:
-- Use ONLY the provided context. Do NOT list or dump raw sources.
+- Use the provided context when answering. For general ERP/Campfire positioning you may use the role above if context is thin.
 - Write a concise answer that directly addresses the question in 5–10 lines (short paragraphs or 3–5 bullet points).
-- Synthesize the information: summarize, compare, and answer the question. Do not repeat long snippets.
-- Cite sources inline where relevant, e.g. [Notion: Product Strategy] or [Slack: #general].
+- Synthesize the information; do not list or dump raw sources.
+- Cite sources inline where relevant.
 - Answer the question asked; do not just repeat the context.
 
 Context:
@@ -328,7 +350,7 @@ Answer (5–10 lines, synthesized, with inline source citations):"""
         return "An error occurred while generating the answer.", []
 
 
-_DAILY_BRIEF_SYSTEM = """You are an AI that generates a clean daily product brief from raw, unstructured tool outputs (e.g., Composio extractions, internal tools, Slack, Notion, web results).
+_DAILY_BRIEF_SYSTEM = """You are an AI that generates a clean daily product brief from raw, unstructured inputs (knowledge base and web/intel results).
 
 The input will change every time and may be messy, incomplete, duplicated, or partially cut off.
 
@@ -351,7 +373,7 @@ CRITICAL Rules:
 - EVERY section must have at least 1 entry with 1-2 sentences. NEVER use empty arrays.
 - If you cannot find specific information for a section, infer based on context or write a general statement.
 - Each bullet should be exactly 1-2 sentences, no more, no less.
-- Do NOT mention sources (e.g., Slack, Notion, web).
+- Do NOT mention sources.
 - Do NOT quote raw text; rewrite in your own words.
 - If multiple items conflict, surface the conflict clearly in one bullet.
 - Prioritize what leadership would care about today.
@@ -428,7 +450,7 @@ def generate_daily_brief(db: Session) -> dict:
 
     if not context_blob:
         return {
-            "summary": ["No recent data available. Run a Composio sync and refresh intel to generate a brief."],
+            "summary": ["No recent data available. Add content to the knowledge base or refresh intel to generate a brief."],
             "product": ["Ask manager for more information."],
             "sales": ["Ask manager for more information."],
             "company": ["Ask manager for more information."],
@@ -507,9 +529,10 @@ Respond with a single JSON object only (keys: summary, product, sales, company, 
         }
 
 
-def ask(db: Session, question: str) -> dict:
+def ask(db: Session, question: str, knowledge_level: Optional[str] = None) -> dict:
     """
     Full RAG: embed question, search knowledge + competitor intel (You.com cache), generate answer.
+    knowledge_level: beginner | intermediate | advanced for adaptive answers (Phase 1).
     Returns {answer, citations}. Competitor intel is included so answers cite You.com research.
     """
     import numpy as np
@@ -519,5 +542,7 @@ def ask(db: Session, question: str) -> dict:
         query_embedding = np.random.randn(_EMBED_DIM).tolist()
     items = search_similar(db, query_embedding, k=_TOP_K)
     competitor_context = _competitor_context_items(db, question, limit=5)
-    answer, citations = generate_answer(question, items, competitor_context=competitor_context)
+    answer, citations = generate_answer(
+        question, items, competitor_context=competitor_context, knowledge_level=knowledge_level
+    )
     return {"answer": answer, "citations": citations}

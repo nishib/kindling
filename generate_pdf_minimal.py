@@ -1,13 +1,13 @@
-"""Minimal PDF generator (no reportlab) for environments where reportlab fails."""
+"""Minimal PDF generator (no reportlab) — Campfire ERP Onboarding."""
 import os
 
-# Minimal valid single-page PDF (Welcome to Velora)
+# Single-page PDF: Campfire ERP Onboarding (same stream length as original for PDF validity)
 PDF_BYTES = b"""%PDF-1.4
 1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
 2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
 3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >> endobj
 4 0 obj << /Length 44 >> stream
-BT /F1 24 Tf 100 700 Td (Welcome to Velora - OnboardAI) Tj ET
+BT /F1 24 Tf 100 700 Td (Campfire ERP Onboarding ) Tj ET
 endstream endobj
 xref
 0 5

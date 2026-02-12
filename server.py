@@ -1,6 +1,5 @@
-"""FastAPI application for OnboardAI."""
+"""FastAPI application for Campfire ERP Onboarding Assistant."""
 import os
-import concurrent.futures
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -13,13 +12,18 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from database import engine, get_db, init_pgvector, SessionLocal
+from database import engine, get_db, init_pgvector
 from models import Base
-from rag import ask, generate_daily_brief
+from scenarios import router as scenarios_router
+from learning_paths import get_all_paths, get_path
+from erp_concept_graph import (
+    get_concept_graph,
+    get_concept,
+    get_recommend_next,
+)
 
 
 @asynccontextmanager
@@ -37,7 +41,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="OnboardAI", lifespan=lifespan)
+app = FastAPI(title="Campfire ERP Onboarding", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -46,6 +50,148 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Scenario engine API
+app.include_router(scenarios_router, prefix="/api/scenarios", tags=["scenarios"])
+
+
+@app.post("/api/mentor/month-end")
+def month_end_mentor(payload: dict):
+    """
+    AI Mentor for Month-End Close game, backed by Gemini.
+
+    Frontend sends a small, typed payload:
+    {
+      "view": "DASHBOARD" | "AP_MODULE" | "REV_REC_MODULE" | "GL_RECON_MODULE",
+      "periodStatus": "OPEN" | "CLOSED",
+      "tasks": {
+        "apMismatch": bool,
+        "revenueUnrecognized": bool,
+        "suspenseBalance": bool
+      },
+      "lastEvent": str | null
+    }
+    """
+    from rag import _client  # reuse existing Gemini client helper
+
+    client = _client()
+    if not client:
+        # Fallback: mirror existing scripted behavior when GEMINI_API_KEY is not set
+        return {
+          "sentiment": "neutral",
+          "message": (
+            "Gemini is not configured (missing GEMINI_API_KEY). "
+            "The Month-End Close Mentor will use the built-in scripted guidance instead."
+          )
+        }
+
+    view = payload.get("view") or "DASHBOARD"
+    period_status = payload.get("periodStatus") or "OPEN"
+    tasks = payload.get("tasks") or {}
+    last_event = payload.get("lastEvent") or ""
+
+    # Normalize booleans defensively
+    ap_mismatch = bool(tasks.get("apMismatch", False))
+    revenue_unrecognized = bool(tasks.get("revenueUnrecognized", False))
+    suspense_balance = bool(tasks.get("suspenseBalance", False))
+
+    system_prompt = """
+You are the AI Mentor ("The Controller") inside a Month-End Close training game for an AI-native ERP.
+
+You talk to a learner who is acting as a Controller closing the books for a single period.
+
+Tone:
+- Professional: use precise accounting and ERP language.
+- Encouraging: guide the learner; do not criticize.
+- Precise: reference concrete concepts like sub-ledger vs. general ledger, ASC 606, and suspense clearing.
+
+Vocabulary rules (MUST follow):
+- Say "Validation Exception" (never "error").
+- Say "Post to Ledger" (never "Save").
+- Say "Reconcile" (never "Fix").
+
+Context you will receive:
+- view: which workspace the learner is in (DASHBOARD, AP_MODULE, REV_REC_MODULE, GL_RECON_MODULE).
+- periodStatus: OPEN or CLOSED.
+- tasks: which Validation Exceptions are still open:
+  - apMismatch: true/false – AP sub-ledger does not match GL until invoice is Posted to Ledger.
+  - revenueUnrecognized: true/false – revenue schedule not generated; revenue must be recognized over time.
+  - suspenseBalance: true/false – Suspense account holds unreconciled items.
+- lastEvent: most recent user action (e.g. ATTEMPTED_CLOSE_WITH_ISSUES, AP_RESOLVED, REV_REC_RESOLVED, GL_RECON_RESOLVED, PERIOD_CLOSED).
+
+Your job:
+- Write 1–3 sentences addressing what the learner should focus on next given this state.
+- Make the guidance feel reactive to lastEvent when present (e.g., congratulate them after AP_RESOLVED).
+- Do NOT ask the learner questions; give them clear direction.
+- Stay within the Month-End Close scenario; do not invent new modules or tasks.
+""".strip()
+
+    state_blob = (
+        f"view={view}, periodStatus={period_status}, "
+        f"apMismatch={ap_mismatch}, revenueUnrecognized={revenue_unrecognized}, "
+        f"suspenseBalance={suspense_balance}, lastEvent={last_event or 'NONE'}"
+    )
+
+    try:
+        from google.genai import types
+
+        prompt = (
+            f"{system_prompt}\n\n"
+            f"Current Month-End Close state:\n{state_blob}\n\n"
+            "Write the mentor's next message now (1–3 sentences)."
+        )
+
+        config_kw = {"temperature": 0.25, "max_output_tokens": 256}
+        try:
+            # Reuse same timeout style as other Gemini calls
+            from rag import _REQUEST_TIMEOUT_MS  # type: ignore[attr-defined]
+            config_kw["http_options"] = types.HttpOptions(timeout=_REQUEST_TIMEOUT_MS)
+        except Exception:
+            pass
+
+        response = client.models.generate_content(
+            model="models/gemini-2.0-flash",
+            contents=types.Part.from_text(prompt),
+            config=types.GenerateContentConfig(**config_kw),
+        )
+
+        text = ""
+        if getattr(response, "candidates", None):
+            cand = response.candidates[0]
+            finish = getattr(cand, "finish_reason", None) or getattr(cand, "finishReason", None)
+            if str(finish).upper() not in ("BLOCKED", "SAFETY", "RECITATION"):
+                part = cand.content.parts[0] if cand.content.parts else None
+                if part is not None:
+                    text = getattr(part, "text", None) or str(part)
+
+        if not text or not str(text).strip():
+            text = (
+                "You are inside the Month-End Close workspace. Clear all Validation Exceptions "
+                "in AP, Revenue Recognition, and GL Reconciliation before closing the period."
+            )
+
+        # Simple sentiment heuristic from state; UI can still override if needed.
+        if period_status == "CLOSED":
+            sentiment = "celebrating"
+        elif last_event in ("AP_RESOLVED", "REV_REC_RESOLVED", "GL_RECON_RESOLVED"):
+            sentiment = "happy"
+        elif ap_mismatch or revenue_unrecognized or suspense_balance:
+            sentiment = "warning"
+        else:
+            sentiment = "neutral"
+
+        return {
+            "sentiment": sentiment,
+            "message": str(text).strip(),
+        }
+    except Exception:
+        return {
+            "sentiment": "warning",
+            "message": (
+                "An issue occurred calling Gemini. Use the on-screen modules to clear each "
+                "Validation Exception before attempting to Close Period again."
+            ),
+        }
 
 # Serve static PDF brief
 static_dir = os.path.join(os.path.dirname(__file__), "static")
@@ -89,238 +235,6 @@ def health():
     }
 
 
-class AskRequest(BaseModel):
-    question: str
-
-
-class AskResponse(BaseModel):
-    answer: str
-    citations: list[dict]
-    brief: dict | None = None  # structured daily brief when user asks for it
-
-
-class BriefResponse(BaseModel):
-    summary: list[str]
-    product: list[str]
-    sales: list[str]
-    company: list[str]
-    onboarding: list[str]
-    risks: list[str]
-
-
-_ASK_TIMEOUT_SEC = 50
-_BRIEF_TIMEOUT_SEC = 65
-_executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
-
-_BRIEF_TRIGGERS = (
-    "today's brief", "todays brief", "daily brief", "give me the brief",
-    "product brief", "generate brief", "create brief", "brief me",
-)
-
-# Mock answers for demo when database is empty or GEMINI_API_KEY not set
-_MOCK_ANSWERS = {
-    "what is velora's main product": {
-        "answer": "Velora builds an AI-powered customer support platform specifically designed for e-commerce businesses. Our product reduces support ticket resolution time by 80% using large language models trained on merchant-specific data.",
-        "citations": [
-            {
-                "source": "notion",
-                "title": "Velora Product Strategy 2024",
-                "snippet": "AI-powered customer support platform for e-commerce. Key features: automated ticket routing, sentiment analysis, multi-language support. Target: Shopify merchants with 100+ support tickets/month. Reduces resolution time by 80% through ML-based response suggestions..."
-            },
-            {
-                "source": "github",
-                "title": "velora-api/README.md",
-                "snippet": "Core backend for Velora AI customer support platform. Built with FastAPI, PostgreSQL, and pgvector for semantic search. Uses Gemini for embeddings and response generation. Key modules: RAG pipeline, ticket classifier, response generator..."
-            },
-            {
-                "source": "slack",
-                "title": "#product - Sarah Chen",
-                "snippet": "Just shipped v2.0 with the new AI auto-response feature! Early beta customers reporting 85% reduction in manual ticket handling. Next: multi-channel support (email, SMS, WhatsApp)."
-            }
-        ]
-    },
-    "who are our main competitors": {
-        "answer": "Our main competitors are Intercom (enterprise focus with $50k+ ACV), Zendesk (legacy platform with slow innovation), and Gorgias (e-commerce specialized but expensive). We position ourselves as a modern AI-native solution at 1/3 the price of Gorgias.",
-        "citations": [
-            {
-                "source": "notion",
-                "title": "Competitive Analysis Q1 2024",
-                "snippet": "Main competitors: Intercom ($50k+ ACV, enterprise), Zendesk (legacy, slow AI adoption), Gorgias ($300/mo, e-commerce focus). Our positioning: AI-native, affordable ($99-299/mo), faster implementation. Win rate against Gorgias: 67%..."
-            },
-            {
-                "source": "slack",
-                "title": "#sales - Mike Rodriguez",
-                "snippet": "Lost deal to Gorgias today but they're paying 3x what we quoted. Customer cited 'brand recognition' but admitted our AI features are better. We need more case studies to compete on trust."
-            },
-            {
-                "source": "github",
-                "title": "velora-dashboard/CHANGELOG.md",
-                "snippet": "v2.1.0 - Added competitive comparison widget showing Velora vs Gorgias/Intercom response times. Integrated benchmarking data from support ticket datasets..."
-            }
-        ]
-    },
-    "what's our tech stack": {
-        "answer": "Velora is built with Python (FastAPI), PostgreSQL with pgvector for semantic search, Redis for caching, and Google Gemini for embeddings and LLM. Frontend uses React and Vite. We use Composio to integrate with Notion, GitHub, and Slack for knowledge syncing.",
-        "citations": [
-            {
-                "source": "github",
-                "title": "velora-api/requirements.txt",
-                "snippet": "fastapi==0.109.0, uvicorn, sqlalchemy, psycopg2-binary, pgvector, redis, google-genai, celery, httpx, pydantic..."
-            },
-            {
-                "source": "notion",
-                "title": "Engineering Architecture",
-                "snippet": "Stack: Python 3.11+, FastAPI for REST API, PostgreSQL 15 with pgvector extension, Redis for task queue, Gemini for embeddings/generation. Deployed on Render with Docker..."
-            }
-        ]
-    },
-    "pricing strategy": {
-        "answer": "Velora uses tiered pricing: Starter ($99/mo, 1000 tickets), Growth ($299/mo, 5000 tickets), Enterprise (custom, unlimited). We're positioned at 1/3 the cost of Gorgias while offering superior AI capabilities.",
-        "citations": [
-            {
-                "source": "notion",
-                "title": "Pricing & Packaging 2024",
-                "snippet": "Three tiers: Starter $99/mo (1k tickets, basic AI), Growth $299/mo (5k tickets, advanced AI + analytics), Enterprise (custom pricing, white-label, dedicated support). Gorgias equivalent: $900/mo..."
-            },
-            {
-                "source": "slack",
-                "title": "#sales - Amanda Li",
-                "snippet": "Just closed a deal with MerchantCo. They were paying Gorgias $850/mo, switched to our Growth plan at $299. They're saving $6600/year and love the AI features!"
-            }
-        ]
-    },
-    "default": {
-        "answer": "I'm a demo AI assistant for Velora onboarding. The full knowledge base requires connecting Notion, GitHub, and Slack via Composio, plus setting the GEMINI_API_KEY. Try asking: 'What is Velora's main product?' or 'Who are our main competitors?'",
-        "citations": []
-    }
-}
-
-
-def _get_mock_answer(question: str) -> dict:
-    """Return mock answer for common questions when database is unavailable."""
-    q_lower = question.lower().strip()
-    # Try exact match first
-    if q_lower in _MOCK_ANSWERS:
-        return _MOCK_ANSWERS[q_lower]
-    # Try partial match
-    for key in _MOCK_ANSWERS:
-        if key != "default" and key in q_lower:
-            return _MOCK_ANSWERS[key]
-    # Default fallback
-    return _MOCK_ANSWERS["default"]
-
-
-def _is_brief_request(question: str) -> bool:
-    q = (question or "").lower().strip()
-    return any(t in q for t in _BRIEF_TRIGGERS)
-
-
-def _ask_with_fresh_session(question: str):
-    """Run RAG ask in a thread with a fresh DB session (sessions are not thread-safe)."""
-    db = SessionLocal()
-    try:
-        return ask(db, question)
-    finally:
-        db.close()
-
-
-def _brief_with_fresh_session():
-    """Run daily brief generation in a thread with a fresh DB session."""
-    db = SessionLocal()
-    try:
-        return generate_daily_brief(db)
-    finally:
-        db.close()
-
-
-@app.get("/api/brief", response_model=BriefResponse)
-@app.post("/api/brief", response_model=BriefResponse)
-def api_brief(db: Session = Depends(get_db)):
-    """Generate structured daily product brief from recent Composio + intel data."""
-    try:
-        future = _executor.submit(_brief_with_fresh_session)
-        result = future.result(timeout=_BRIEF_TIMEOUT_SEC)
-        return BriefResponse(
-            summary=result.get("summary", []),
-            product=result.get("product", []),
-            sales=result.get("sales", []),
-            company=result.get("company", []),
-            onboarding=result.get("onboarding", []),
-            risks=result.get("risks", []),
-        )
-    except concurrent.futures.TimeoutError:
-        return BriefResponse(
-            summary=["Brief generation timed out. Try again."],
-            product=[], sales=[], company=[], onboarding=[], risks=[],
-        )
-    except Exception:
-        return BriefResponse(
-            summary=["Brief generation failed. Ensure DB and GEMINI_API_KEY are set."],
-            product=[], sales=[], company=[], onboarding=[], risks=[],
-        )
-
-
-@app.post("/api/ask", response_model=AskResponse)
-def api_ask(req: AskRequest, db: Session = Depends(get_db)):
-    """RAG Q&A (Gemini): embed, semantic search, synthesis with citations. Times out after 50s."""
-    q = (req.question or "").strip()
-    if not q:
-        return AskResponse(answer="Please ask a question about Velora.", citations=[])
-    if _is_brief_request(q):
-        try:
-            future = _executor.submit(_brief_with_fresh_session)
-            brief = future.result(timeout=_BRIEF_TIMEOUT_SEC)
-            return AskResponse(answer="", citations=[], brief=brief)
-        except concurrent.futures.TimeoutError:
-            return AskResponse(
-                answer="Brief generation timed out. Try the “Today’s brief” button or try again.",
-                citations=[],
-            )
-        except Exception:
-            return AskResponse(
-                answer="Brief generation failed. Ensure DB and GEMINI_API_KEY are set.",
-                citations=[],
-            )
-    try:
-        future = _executor.submit(_ask_with_fresh_session, q)
-        result = future.result(timeout=_ASK_TIMEOUT_SEC)
-        return AskResponse(answer=result["answer"], citations=result["citations"])
-    except concurrent.futures.TimeoutError:
-        return AskResponse(
-            answer="The request took too long. Please try again or ask a shorter question.",
-            citations=[],
-        )
-    except Exception:
-        # Fallback to mock answers for demo when database/API unavailable
-        mock = _get_mock_answer(q)
-        return AskResponse(
-            answer=mock["answer"],
-            citations=mock["citations"],
-        )
-
-
-@app.get("/api/sync/status")
-def sync_status(db: Session = Depends(get_db)):
-    """Return last_sync_at and next_sync_at for dashboard (Composio)."""
-    try:
-        from composio_sync import get_sync_status
-        return get_sync_status(db)
-    except Exception:
-        from datetime import datetime, timedelta
-        return {"last_sync_at": None, "next_sync_at": (datetime.utcnow() + timedelta(hours=6)).isoformat()}
-
-
-@app.post("/api/sync/trigger")
-def sync_trigger(db: Session = Depends(get_db)):
-    """Trigger Composio sync manually (Phase 3 – Composio)."""
-    try:
-        from composio_sync import run_sync
-        result = run_sync(db)
-        return {"status": "ok", **result}
-    except Exception as e:
-        return {"status": "error", "error": str(e)[:200]}
-
-
 @app.get("/api/intel/feed")
 def intel_feed(db: Session = Depends(get_db)):
     """Competitive Intelligence Feed (You.com) — cached results."""
@@ -362,6 +276,67 @@ def intel_refresh(db: Session = Depends(get_db)):
         return {"status": "ok", "added": added}
     except Exception as e:
         return {"status": "error", "added": 0, "error": str(e)[:200]}
+
+
+@app.get("/api/intel/customer")
+def intel_customer_search(name: str = "", db: Session = Depends(get_db)):
+    """You.com customer search (Chunk 4). Returns RAG-style items; uses cache when available."""
+    try:
+        from you_com import customer_search
+        items = customer_search((name or "").strip(), db=db, max_items=5)
+        return {"items": items, "query": name or ""}
+    except Exception as e:
+        return {"items": [], "query": name or "", "error": str(e)[:200]}
+
+
+@app.get("/api/intel/explainer")
+def intel_explainer_search(term: str = "", db: Session = Depends(get_db)):
+    """You.com accounting/ERP explainer search (Chunk 4). Returns RAG-style items; uses cache."""
+    try:
+        from you_com import explainer_search
+        items = explainer_search((term or "").strip(), db=db, max_items=5)
+        return {"items": items, "query": term or ""}
+    except Exception as e:
+        return {"items": [], "query": term or "", "error": str(e)[:200]}
+
+
+# --- Learning pathways (Chunk 1) ---
+@app.get("/api/learning/paths")
+def api_learning_paths():
+    """List all learning paths (id, title, description, module_count)."""
+    return get_all_paths()
+
+
+@app.get("/api/learning/paths/{path_id}")
+def api_learning_path(path_id: str):
+    """Get a single path with full modules (ordered)."""
+    path = get_path(path_id)
+    if path is None:
+        return {"detail": "Path not found"}
+    return path
+
+
+# --- Skill Map + Knowledge Graph (ERP concepts) ---
+@app.get("/api/learning/concept-graph")
+def api_concept_graph():
+    """Full ERP concept graph: concepts with children and dependencies."""
+    return get_concept_graph()
+
+
+@app.get("/api/learning/concepts/{concept_id}")
+def api_concept(concept_id: str):
+    """Single concept with depends_on details and children."""
+    concept = get_concept(concept_id)
+    if concept is None:
+        return {"detail": "Concept not found"}
+    return concept
+
+
+@app.get("/api/learning/recommend-next")
+def api_recommend_next(completed: str = ""):
+    """Concepts ready to learn next (all dependencies satisfied). completed = comma-separated concept ids."""
+    completed_ids = [x.strip() for x in (completed or "").split(",") if x.strip()]
+    return get_recommend_next(completed_ids)
 
 
 @app.get("/api/render/usage")

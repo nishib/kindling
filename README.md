@@ -16,58 +16,29 @@ The original customer hub / glossary / Firecrawl plans are not implemented in th
 ## What’s implemented
 
 - **Skill Map & concept graph**
-  - Backend: `erp_concept_graph.py` exposes concepts, dependencies, and “recommend next” via:
-    - `GET /api/learning/concept-graph`
-    - `GET /api/learning/concepts/{concept_id}`
-    - `GET /api/learning/recommend-next?completed=...`
-  - Frontend: `App.jsx` renders a **Skill Map + Knowledge Graph** section with:
-    - Clickable concepts and full detail (description, why it matters, dependencies).
-    - A “Recommended next” rail that calls `/api/learning/recommend-next`.
+  - Backend: `erp_concept_graph.py` stores the ERP concept graph and supports “recommended next” based on completed concepts.
+  - Frontend: `App.jsx` renders a **Skill Map + Knowledge Graph** section with clickable concepts, full detail (description, why it matters, dependencies), and a “Recommended next” rail.
 
 - **Learning paths**
   - Backend: `learning_paths.py` defines two in‑code paths:
     - `accounting` — Accounting 101 → GL → revenue recognition.
     - `erp` — ERP 101 → legacy vs modern → Campfire’s place.
-  - API:
-    - `GET /api/learning/paths` — list of paths with module counts.
-    - `GET /api/learning/paths/{path_id}` — ordered modules with markdown content.
-  - Frontend: `App.jsx` pulls these endpoints and renders modules in the Learn view.
+  - Frontend: `App.jsx` loads these paths and renders modules in the Learn view.
 
 - **Competitive intelligence (You.com)**
-  - Backend:
-    - `you_com.py` wraps You.com search and caching into `CompetitorIntel` and `YouComCache`.
-    - `server.py` exposes:
-      - `GET /api/intel/feed` — cached competitor feed.
-      - `POST /api/intel/refresh` — refresh competitor intel.
-      - `GET /api/intel/search` — live web + news search.
-      - `GET /api/intel/customer` and `/api/intel/explainer` — customer and explainer search with caching.
-  - Frontend: `App.jsx` shows:
-    - A live search box that calls `/api/intel/search`.
-    - A cached feed with “Refresh intel” calling `/api/intel/refresh`.
+  - Backend: `you_com.py` wraps You.com search and caching into `CompetitorIntel` and `YouComCache` for competitor and explainer intel.
+  - Frontend: `App.jsx` shows a live search box plus a cached competitor feed with a “Refresh intel” action.
 
 - **Simulated ERP scenarios**
-  - Backend:
-    - `scenarios.py` + `scenario_engine/` implement templates, synthetic data, a rules engine, and an AI coach.
-    - Routes under `/api/scenarios`:
-      - `GET /api/scenarios` — list available scenario templates.
-      - `POST /api/scenarios/{scenario_id}/start` — start a run (DB + in‑memory fallback).
-      - `POST /api/scenarios/{run_id}/decision` — apply a choice and advance state.
-      - `POST /api/scenarios/{run_id}/coach` — ask an AI coach about the current run.
-      - `GET /api/scenarios/{run_id}/debrief` — debrief summary, metrics, strengths, and suggested next scenarios.
-    - Data is persisted in Postgres when available (`ERPScenarioRun`, `ERPScenarioEvent`) but also kept in an in‑memory store so scenarios still work if the DB is down.
+  - Backend: `scenarios.py` + `scenario_engine/` implement templates, synthetic data, a rules engine, and an AI coach. Scenario runs are stored in Postgres when available and mirrored in an in‑memory store so they still work if the DB is down.
   - Frontend:
     - `ScenariosView.jsx` — left rail of scenarios, runner panel, and debrief view.
-    - `ScenarioRunner.jsx` — step‑by‑step scenario UI with:
-      - Synthetic company snapshot.
-      - Synthetic datasets (invoices, integration events, failed webhooks, journal entries).
-      - Scenario choices and metrics (simulated hours, revenue error %, open recon issues, audit risk).
-      - AI Coach side panel (`/api/scenarios/{run_id}/coach`).
+    - `ScenarioRunner.jsx` — step‑by‑step scenario UI with a synthetic company snapshot, synthetic datasets (invoices, integration events, failed webhooks, journal entries), scenario choices, metrics, and an AI Coach side panel.
     - `ScenarioDebrief.jsx` — post‑run metrics, strengths, opportunities, concepts to review, and recommended next scenarios.
 
 - **RAG + Gemini**
   - `rag.py` implements a Gemini‑backed RAG pipeline over `KnowledgeItem` and `CompetitorIntel` using pgvector.
   - `generate_daily_brief` creates a JSON daily brief from recent knowledge + intel.
-  - The endpoints that call this are not wired into the current UI, but the module and models (`KnowledgeItem`, `CompetitorIntel`, `YouComCache`, `SyncState`) are ready for use.
 
 ---
 
@@ -121,34 +92,6 @@ npm run dev
 ```
 
 Open `http://localhost:3000`.
-
----
-
-## Key API endpoints
-
-- **Health**
-  - `GET /health`
-
-- **Learning**
-  - `GET /api/learning/paths`
-  - `GET /api/learning/paths/{path_id}`
-  - `GET /api/learning/concept-graph`
-  - `GET /api/learning/concepts/{concept_id}`
-  - `GET /api/learning/recommend-next?completed=...`
-
-- **Competitive intelligence**
-  - `GET /api/intel/feed`
-  - `POST /api/intel/refresh`
-  - `GET /api/intel/search?q=...`
-  - `GET /api/intel/customer?name=...`
-  - `GET /api/intel/explainer?term=...`
-
-- **Simulated scenarios**
-  - `GET /api/scenarios`
-  - `POST /api/scenarios/{scenario_id}/start`
-  - `POST /api/scenarios/{run_id}/decision`
-  - `POST /api/scenarios/{run_id}/coach`
-  - `GET /api/scenarios/{run_id}/debrief`
 
 ---
 

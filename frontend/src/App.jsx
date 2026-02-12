@@ -43,9 +43,6 @@ function ConceptTree({ concepts, rootId, onSelect, masteredIds }) {
           onClick={() => onSelect(node.id)}
         >
           <span className="concept-tree-title">{node.title}</span>
-          {node.depends_on?.length > 0 && (
-            <span className="concept-tree-deps">depends on {node.depends_on.length}</span>
-          )}
         </button>
         {children.length > 0 && (
           <ul className="concept-tree-children">

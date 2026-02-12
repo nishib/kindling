@@ -76,22 +76,9 @@ export YOU_API_KEY=...
 uvicorn server:app --reload --port 8000
 ```
 
-**Frontend (dev)** — from repo root:
+**Frontend (dev)**
 
-```bash
-npm install
-npm run dev
-```
-
-or from `frontend/`:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open `http://localhost:3000`.
+Use the React/Vite dev server from either the repo root or the `frontend` directory to run the UI locally.
 
 ---
 
@@ -103,12 +90,3 @@ Open `http://localhost:3000`.
 | `GEMINI_API_KEY` | Gemini API key for embeddings, answers, and briefs |
 | `YOU_API_KEY` | You.com API key for competitive and explainer search |
 | `RENDER_API_KEY` | Optional: used by `/api/render/usage` to show Render usage |
-
----
-
-## URLs
-
-- **API:** `http://localhost:8000`
-- **Health:** `http://localhost:8000/health`
-- **Frontend:** `http://localhost:3000`
-- **PDF brief:** `http://localhost:8000/static/onboarding_brief.pdf`

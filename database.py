@@ -14,6 +14,14 @@ DATABASE_URL = os.getenv(
     "postgresql://postgres:postgres@localhost:5432/onboardai",
 )
 
+# Render Postgres (and many cloud providers) require SSL
+if DATABASE_URL and "render.com" in DATABASE_URL and "sslmode" not in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL + ("&" if "?" in DATABASE_URL else "?") + "sslmode=require"
+
+# psycopg2 expects postgresql://; Render sometimes gives postgres://
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = "postgresql://" + DATABASE_URL[len("postgres://") :]
+
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

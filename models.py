@@ -34,6 +34,25 @@ class CompetitorIntel(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class IntelEvent(Base):
+    """
+    Capability-level competitor change event from You.com live web search.
+
+    This is the structured "ERP feature radar" unit that powers the competitor page.
+    """
+
+    __tablename__ = "intel_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    competitor = Column(String(128), nullable=False)
+    change_type = Column(String(32), nullable=False)  # new_feature, enhancement, deprecation, announcement
+    claim = Column(Text, nullable=False)  # one-sentence summary of the change
+    beginner_summary = Column(JSON, nullable=False)  # list of 3 plain-language bullets
+    evidence_url = Column(String(512), nullable=False)
+    evidence_snippet = Column(Text, nullable=False)  # excerpt from the source
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class SyncState(Base):
     """Key-value store for sync metadata (last_sync_at, etc.)."""
     __tablename__ = "sync_state"

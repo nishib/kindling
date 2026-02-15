@@ -198,53 +198,13 @@ function LearnView() {
 }
 
 function CompetitiveIntelView() {
-  const [intelFeed, setIntelFeed] = useState([])
-  const [intelRefreshing, setIntelRefreshing] = useState(false)
-  const [liveSearchQuery, setLiveSearchQuery] = useState('')
-  const [liveSearchResults, setLiveSearchResults] = useState(null)
-  const [liveSearchLoading, setLiveSearchLoading] = useState(false)
   const [health, setHealth] = useState(null)
-  const [youStatus, setYouStatus] = useState('Unknown')
-  const [watchlist, setWatchlist] = useState([
-    {
-      id: 'netsuite',
-      name: 'NetSuite',
-      verticals: 'Mid-market SaaS, Services',
-      status: 'Monitoring',
-      momentum: 'High',
-      velocity: 'High',
-      risk: 'High',
-    },
-    {
-      id: 'sap',
-      name: 'SAP',
-      verticals: 'Enterprise, Manufacturing',
-      status: 'Monitoring',
-      momentum: 'Medium',
-      velocity: 'Medium',
-      risk: 'High',
-    },
-    {
-      id: 'oracle',
-      name: 'Oracle',
-      verticals: 'Enterprise, Financials',
-      status: 'Monitoring',
-      momentum: 'Medium',
-      velocity: 'High',
-      risk: 'Medium',
-    },
-    {
-      id: 'workday',
-      name: 'Workday',
-      verticals: 'HCM, Finance',
-      status: 'Limited Data',
-      momentum: 'Medium',
-      velocity: 'Medium',
-      risk: 'Medium',
-    },
-  ])
-  const [newCompetitor, setNewCompetitor] = useState('')
-  const [timelineFilter, setTimelineFilter] = useState('all')
+  const [registry, setRegistry] = useState([])
+  const [events, setEvents] = useState([])
+  const [eventsLoading, setEventsLoading] = useState(false)
+  const [crawlLoading, setCrawlLoading] = useState(false)
+  const [selectedCompetitor, setSelectedCompetitor] = useState('all')
+  const [selectedTheme, setSelectedTheme] = useState('all')
 
   useEffect(() => {
     axios.get(API_URL ? `${API_URL}/health` : '/health')
@@ -253,107 +213,61 @@ function CompetitiveIntelView() {
   }, [])
 
   useEffect(() => {
-    axios.get(API_URL ? `${API_URL}/api/intel/feed` : '/api/intel/feed')
-      .then(res => setIntelFeed(Array.isArray(res.data) ? res.data : []))
-      .catch(() => setIntelFeed([]))
+    axios.get(API_URL ? `${API_URL}/api/competitors/sources` : '/api/competitors/sources')
+      .then(res => setRegistry(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setRegistry([]))
+
+    const loadEvents = () => {
+      setEventsLoading(true)
+      axios.get(API_URL ? `${API_URL}/api/competitors/events` : '/api/competitors/events', {
+        params: { limit: 50 },
+      })
+        .then(res => setEvents(Array.isArray(res.data) ? res.data : []))
+        .catch(() => setEvents([]))
+        .finally(() => setEventsLoading(false))
+    }
+    loadEvents()
   }, [])
 
-  const refreshIntel = async () => {
-    setIntelRefreshing(true)
+  const triggerCrawl = async () => {
+    setCrawlLoading(true)
     try {
-      await axios.post(API_URL ? `${API_URL}/api/intel/refresh` : '/api/intel/refresh')
-      const res = await axios.get(API_URL ? `${API_URL}/api/intel/feed` : '/api/intel/feed')
-      setIntelFeed(Array.isArray(res.data) ? res.data : [])
+      await axios.post(API_URL ? `${API_URL}/api/competitors/crawl` : '/api/competitors/crawl')
+      const res = await axios.get(API_URL ? `${API_URL}/api/competitors/events` : '/api/competitors/events', {
+        params: { limit: 50 },
+      })
+      setEvents(Array.isArray(res.data) ? res.data : [])
     } catch {
-      setIntelFeed([])
+      // swallow; UI will just show existing events
     } finally {
-      setIntelRefreshing(false)
+      setCrawlLoading(false)
     }
   }
 
-  const runLiveSearch = async (e) => {
-    e?.preventDefault()
-    const q = (typeof e?.target?.query?.value === 'string' ? e.target.query.value : liveSearchQuery).trim()
-    if (!q) return
-    setLiveSearchLoading(true)
-    setLiveSearchResults(null)
-    try {
-      const res = await axios.get(API_URL ? `${API_URL}/api/intel/search` : '/api/intel/search', {
-        params: { q, count: 8, freshness: 'month' },
-      })
-      setLiveSearchResults(res.data)
-      setYouStatus('Connected')
-    } catch (err) {
-      setLiveSearchResults({
-        web: [],
-        news: [],
-        query: q,
-        error: err.response?.data?.error || err.message || 'Search failed',
-      })
-      setYouStatus('Error')
-    } finally {
-      setLiveSearchLoading(false)
-    }
-  }
-
-  const addCompetitorToWatchlist = (e) => {
-    e.preventDefault()
-    const name = newCompetitor.trim()
-    if (!name) return
-    const id = name.toLowerCase().replace(/\s+/g, '-')
-    if (watchlist.some((c) => c.id === id)) {
-      setNewCompetitor('')
-      return
-    }
-    setWatchlist((prev) => [
-      ...prev,
-      {
-        id,
-        name,
-        verticals: 'Custom',
-        status: 'Setup Required',
-        momentum: 'Unknown',
-        velocity: 'Unknown',
-        risk: 'Unknown',
-      },
-    ])
-    setNewCompetitor('')
-  }
-
-  const sortedEvents = [...intelFeed].sort((a, b) => {
-    const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0
-    const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0
-    return tb - ta
-  })
-
-  const filteredEvents = timelineFilter === 'all'
-    ? sortedEvents
-    : sortedEvents.filter((e) => e.competitor?.toLowerCase() === timelineFilter)
-
-  const lastCrawlAt = sortedEvents[0]?.timestamp
-
-  const aiFocusCount = sortedEvents.filter((e) =>
-    /ai|copilot|machine learning/i.test(e.content || '')
-  ).length
-  const upmarketCount = sortedEvents.filter((e) =>
-    /enterprise|up-market|enterprise-only/i.test(e.content || '')
-  ).length
-
-  const competitorsForFilter = [
-    { id: 'all', name: 'All competitors' },
-    ...watchlist.map((c) => ({ id: c.id, name: c.name })),
+  const allCompetitors = [
+    'all',
+    ...registry.map(r => r.competitor),
   ]
 
-  const hasIntel = sortedEvents.length > 0
+  const allThemes = [
+    'all',
+    ...Array.from(new Set(events.map(e => (e.theme || '').toLowerCase()).filter(Boolean))),
+  ]
+
+  const filteredEvents = events.filter(e => {
+    const cOk = selectedCompetitor === 'all' || e.competitor === selectedCompetitor
+    const tOk = selectedTheme === 'all' || (e.theme || '').toLowerCase() === selectedTheme
+    return cOk && tOk
+  })
 
   return (
     <div className="intel-console">
       <section className="intel-hero">
         <div>
-          <h2>Competitive Intelligence Engine</h2>
+          <h2>Release Notes + Docs Capability Feed</h2>
           <p className="intel-hero-sub">
-            Always-on monitoring for your ERP competitive landscape. Battlecards, timelines, and
-            “so what?” insights instead of raw links.
+            Live “ERP feature radar” for core competitors, built from diffs in their official
+            release notes and documentation.
           </p>
         </div>
         <div className="intel-integrations">
@@ -370,275 +284,146 @@ function CompetitiveIntelView() {
                 {health?.database || 'unknown'}
               </span>
             </div>
-            <div className="intel-status-row">
-              <span className="intel-status-label">You.com</span>
-              <span className="intel-status-pill" data-ok={youStatus === 'Connected'}>
-                {youStatus}
-              </span>
-            </div>
-            <div className="intel-status-meta">
-              <span>
-                Last crawl:{' '}
-                {lastCrawlAt ? new Date(lastCrawlAt).toLocaleString() : 'No events yet'}
-              </span>
-              <span>Next refresh: ~60 minutes</span>
-            </div>
           </div>
         </div>
       </section>
 
-      {!hasIntel && (
-        <section className="intel-empty-state">
-          <div className="intel-empty-main">
-            <h3>Trending battles to explore</h3>
-            <p>
-              Jump into example intel views to see how competitive monitoring works before you plug
-              in your own stack.
-            </p>
-            <div className="intel-empty-prompts">
-              <button
-                type="button"
-                className="intel-empty-btn"
-                onClick={() => setLiveSearchQuery('NetSuite AI vs Oracle AI')}
-              >
-                How does NetSuite’s new AI compare to Oracle’s?
-              </button>
-              <button
-                type="button"
-                className="intel-empty-btn"
-                onClick={() => setLiveSearchQuery('SAP ERP pricing changes last 90 days')}
-              >
-                What&apos;s changed in SAP pricing over the last 90 days?
-              </button>
-              <button
-                type="button"
-                className="intel-empty-btn"
-                onClick={() => setLiveSearchQuery('Top reasons companies churn from NetSuite')}
-              >
-                What are the top 5 reasons companies churn from NetSuite?
-              </button>
-            </div>
-          </div>
-          <div className="intel-empty-side">
-            <h4>Industry templates</h4>
-            <p className="intel-empty-side-sub">
-              Pick a starting vertical and we&apos;ll suggest competitors and themes.
-            </p>
-            <div className="intel-empty-tags">
-              <span className="intel-tag">SaaS · Churn · Usage-based pricing · AI copilots</span>
-              <span className="intel-tag">Manufacturing · Supply chain · WMS · ERP integration</span>
-              <span className="intel-tag">Fintech · Risk · Reconciliation · Compliance</span>
-            </div>
-          </div>
-        </section>
-      )}
-
       <section className="intel-watchlist">
         <div className="intel-section-header">
           <div>
-            <h3>Tracked competitors</h3>
+            <h3>Source registry by competitor</h3>
             <p className="intel-section-sub">
-              Your always-on watchlist across ERP and adjacent players.
+              High-signal URLs the crawler watches for each ERP vendor (release notes, docs,
+              deprecations, changelogs).
             </p>
           </div>
-          <form className="intel-add-form" onSubmit={addCompetitorToWatchlist}>
-            <input
-              type="text"
-              placeholder="Add competitor (e.g. QuickBooks)"
-              value={newCompetitor}
-              onChange={(e) => setNewCompetitor(e.target.value)}
-            />
-            <button type="submit">Add</button>
-          </form>
         </div>
         <div className="intel-watchlist-grid">
-          {watchlist.map((c) => (
-            <div key={c.id} className="intel-competitor-card">
+          {(registry || []).map((c) => {
+            const sources = c?.sources ?? []
+            return (
+            <div key={c.competitor} className="intel-competitor-card">
               <div className="intel-competitor-header">
                 <div className="intel-avatar">
-                  <span>{c.name.charAt(0)}</span>
+                  <span>{(c.competitor || '').charAt(0)}</span>
                 </div>
                 <div>
-                  <h4>{c.name}</h4>
-                  <p className="intel-competitor-verticals">{c.verticals}</p>
+                  <h4>{c.competitor}</h4>
+                  <p className="intel-competitor-verticals">
+                    {sources.length} high-signal source{sources.length === 1 ? '' : 's'}
+                  </p>
                 </div>
               </div>
-              <div className="intel-competitor-metrics">
-                <div>
-                  <span className="intel-metric-label">Status</span>
-                  <span className={`intel-metric-pill status-${c.status.replace(/\s+/g, '-').toLowerCase()}`}>
-                    {c.status}
-                  </span>
-                </div>
-                <div>
-                  <span className="intel-metric-label">Market momentum</span>
-                  <span className="intel-metric-value">{c.momentum}</span>
-                </div>
-                <div>
-                  <span className="intel-metric-label">Product velocity</span>
-                  <span className="intel-metric-value">{c.velocity}</span>
-                </div>
-                <div>
-                  <span className="intel-metric-label">Risk level</span>
-                  <span className="intel-metric-value">{c.risk}</span>
+              <div className="intel-competitor-metrics registry-layout">
+                <div className="intel-registry-column">
+                  <span className="intel-metric-label">Watched URLs</span>
+                  <ul className="intel-so-what-list">
+                    {sources.map((src, idx) => (
+                      <li key={idx}>
+                        <a
+                          href={src.url}
+                          className="intel-link"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {src.label || src.url}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       </section>
 
       <section className="intel-live-and-timeline">
         <div className="intel-live-column">
-          <h3>Live web &amp; news search</h3>
+          <h3>Capability change feed</h3>
           <p className="intel-section-sub">
-            Powered by You.com to pull in the latest docs, news, and forum threads.
+            Diff-first view of feature-level changes across competitors – each event is backed by a
+            citation to an official page.
           </p>
-          <form className="intel-live-search" onSubmit={runLiveSearch}>
-            <input
-              type="text"
-              name="query"
-              className="intel-live-input"
-              placeholder="Search live: e.g. NetSuite vs SAP, QuickBooks ERP…"
-              value={liveSearchQuery}
-              onChange={(e) => setLiveSearchQuery(e.target.value)}
-              disabled={liveSearchLoading}
-            />
-            <button type="submit" className="intel-live-btn" disabled={liveSearchLoading}>
-              {liveSearchLoading ? 'Searching…' : 'Search live'}
-            </button>
-          </form>
-          {liveSearchResults && (
-            <div className="intel-live-results">
-              <h4 className="intel-live-heading">
-                Live results for “{liveSearchResults.query}”
-              </h4>
-              {liveSearchResults.error && (
-                <p className="intel-live-error">{liveSearchResults.error}</p>
-              )}
-              {!liveSearchResults.error && (
-                <>
-                  {((liveSearchResults.web || []).length > 0 ||
-                    (liveSearchResults.news || []).length > 0) ? (
-                    <>
-                      {(liveSearchResults.news || []).length > 0 && (
-                        <div className="intel-live-block">
-                          <h4>News</h4>
-                          <ul className="intel-live-list">
-                            {(liveSearchResults.news || []).map((item, i) => (
-                              <li key={i} className="intel-live-item">
-                                <span className="intel-live-title">{item.title}</span>
-                                {item.source_name && (
-                                  <span className="intel-live-source">{item.source_name}</span>
-                                )}
-                                <p className="intel-live-content">{item.content}</p>
-                                {item.url && (
-                                  <a
-                                    href={item.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="intel-link"
-                                  >
-                                    Read
-                                  </a>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {(liveSearchResults.web || []).length > 0 && (
-                        <div className="intel-live-block">
-                          <h4>Web</h4>
-                          <ul className="intel-live-list">
-                            {(liveSearchResults.web || []).map((item, i) => (
-                              <li key={i} className="intel-live-item">
-                                <span className="intel-live-title">{item.title}</span>
-                                <p className="intel-live-content">{item.content}</p>
-                                {item.url && (
-                                  <a
-                                    href={item.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="intel-link"
-                                  >
-                                    Source
-                                  </a>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <p className="intel-empty">
-                      No live results. Try another query or expand your timeframe.
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="intel-timeline-column">
-          <div className="intel-cached-heading">
-            <span>Intel timeline</span>
-            <button
-              type="button"
-              className="intel-refresh-btn"
-              onClick={refreshIntel}
-              disabled={intelRefreshing}
-            >
-              {intelRefreshing ? 'Refreshing…' : 'Refresh intel'}
-            </button>
-          </div>
           <div className="intel-timeline-filter">
-            <label htmlFor="timeline-filter">View</label>
+            <label htmlFor="competitor-filter">Competitor</label>
             <select
-              id="timeline-filter"
-              value={timelineFilter}
-              onChange={(e) => setTimelineFilter(e.target.value)}
+              id="competitor-filter"
+              value={selectedCompetitor}
+              onChange={(e) => setSelectedCompetitor(e.target.value)}
             >
-              {competitorsForFilter.map((c) => (
-                <option key={c.id} value={c.id === 'all' ? 'all' : c.name.toLowerCase()}>
-                  {c.name}
+              {allCompetitors.map((c) => (
+                <option key={c} value={c}>
+                  {c === 'all' ? 'All competitors' : c}
                 </option>
               ))}
             </select>
+            <label htmlFor="theme-filter">Theme</label>
+            <select
+              id="theme-filter"
+              value={selectedTheme}
+              onChange={(e) => setSelectedTheme(e.target.value)}
+            >
+              {allThemes.map((t) => (
+                <option key={t} value={t}>
+                  {t === 'all' ? 'All themes' : t}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="intel-refresh-btn"
+              onClick={triggerCrawl}
+              disabled={crawlLoading}
+            >
+              {crawlLoading ? 'Crawling…' : 'Run crawl now'}
+            </button>
           </div>
-          {sortedEvents.length > 0 ? (
+
+          {eventsLoading ? (
+            <p className="intel-empty">Loading capability changes…</p>
+          ) : filteredEvents.length === 0 ? (
+            <p className="intel-empty">
+              No capability-level change events yet. Run a crawl to populate the feed.
+            </p>
+          ) : (
             <ul className="intel-timeline-list">
-              {filteredEvents.slice(0, 20).map((item) => (
-                <li key={item.id} className="intel-event-card">
+              {filteredEvents.map((e) => (
+                <li key={e.id} className="intel-event-card">
                   <div className="intel-event-header">
                     <div>
-                      <span className="intel-event-competitor">
-                        {item.competitor || 'Unknown competitor'}
-                      </span>
-                      <span className="intel-event-type">{item.type}</span>
+                      <span className="intel-event-competitor">{e.competitor}</span>
+                      <span className="intel-event-type">{e.change_type}</span>
                     </div>
-                    {item.timestamp && (
+                    {e.created_at && (
                       <span className="intel-event-time">
-                        {new Date(item.timestamp).toLocaleString()}
+                        {new Date(e.created_at).toLocaleString()}
                       </span>
                     )}
                   </div>
-                  <p className="intel-event-content">{item.content}</p>
+                  <p className="intel-event-content">
+                    <strong>{e.theme}</strong> — {e.claim}
+                  </p>
+                  <ul className="intel-so-what-list">
+                    {(e.beginner_summary || []).map((b, i) => (
+                      <li key={i}>{b}</li>
+                    ))}
+                  </ul>
                   <div className="intel-event-footer">
                     <span className="intel-event-tags">
-                      {item.type && <span className="intel-tag">{item.type}</span>}
+                      {e.theme && <span className="intel-tag">{e.theme}</span>}
+                      {e.change_type && <span className="intel-tag">{e.change_type}</span>}
                     </span>
                     <div className="intel-event-links">
-                      {item.source_url && (
+                      {e.evidence_url && (
                         <a
-                          href={item.source_url}
+                          href={e.evidence_url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="intel-link"
                         >
-                          Source
+                          Evidence
                         </a>
                       )}
                     </div>
@@ -646,207 +431,7 @@ function CompetitiveIntelView() {
                 </li>
               ))}
             </ul>
-          ) : (
-            <p className="intel-empty">
-              No competitive intelligence data yet. Click Refresh to trigger the first crawl.
-            </p>
           )}
-        </div>
-      </section>
-
-      <section className="intel-so-what">
-        <h3>So what? Cross-competitor signals</h3>
-        <p className="intel-section-sub">
-          Synthesized deltas across your watchlist, with suggested implications.
-        </p>
-        <div className="intel-so-what-grid">
-          <div className="intel-so-what-card">
-            <h4>AI forecasting focus</h4>
-            <p className="intel-so-what-metric">
-              <strong>{aiFocusCount}</strong> recent signals mentioning AI, copilots, or ML
-              forecasting.
-            </p>
-            <ul className="intel-so-what-list">
-              <li>
-                This trend will increase pressure on your AI roadmap and talk tracks in mid-market
-                deals.
-              </li>
-              <li>
-                Consider a focused enablement push on how your product handles forecasting and
-                anomaly detection.
-              </li>
-            </ul>
-          </div>
-          <div className="intel-so-what-card">
-            <h4>Up-market motion</h4>
-            <p className="intel-so-what-metric">
-              <strong>{upmarketCount}</strong> events tied to enterprise-only SKUs or up-market
-              positioning.
-            </p>
-            <ul className="intel-so-what-list">
-              <li>
-                Expect more head-to-heads in upper mid-market and lower enterprise opportunities.
-              </li>
-              <li>
-                Update battlecards to clearly show where you win on implementation speed and
-                total cost of ownership.
-              </li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <section className="intel-frameworks">
-        <div className="intel-framework">
-          <h3>Feature parity matrix</h3>
-          <p className="intel-section-sub">
-            High-level parity view across core ERP capabilities. Ideal for deal strategy and
-            roadmap alignment.
-          </p>
-          <div className="intel-table-scroll">
-            <table className="intel-matrix">
-              <thead>
-                <tr>
-                  <th>Capability</th>
-                  <th>Your product</th>
-                  <th>NetSuite</th>
-                  <th>SAP</th>
-                  <th>Oracle</th>
-                  <th>Workday</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>AI forecasting</td>
-                  <td>Strong</td>
-                  <td>Strong</td>
-                  <td>Parity</td>
-                  <td>Strong</td>
-                  <td>Parity</td>
-                </tr>
-                <tr>
-                  <td>Multi-entity consolidation</td>
-                  <td>Parity</td>
-                  <td>Strong</td>
-                  <td>Strong</td>
-                  <td>Strong</td>
-                  <td>Parity</td>
-                </tr>
-                <tr>
-                  <td>Embedded analytics</td>
-                  <td>Strong</td>
-                  <td>Parity</td>
-                  <td>Parity</td>
-                  <td>Strong</td>
-                  <td>Strong</td>
-                </tr>
-                <tr>
-                  <td>Manufacturing WMS</td>
-                  <td>Lagging</td>
-                  <td>Parity</td>
-                  <td>Strong</td>
-                  <td>Strong</td>
-                  <td>Unknown</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="intel-framework">
-          <h3>Pricing intelligence</h3>
-          <p className="intel-section-sub">
-            Snapshot of pricing models, deal sizes, and discount behavior across competitors.
-          </p>
-          <div className="intel-pricing-grid">
-            {watchlist.slice(0, 4).map((c) => (
-              <div key={c.id} className="intel-pricing-card">
-                <h4>{c.name}</h4>
-                <p className="intel-pricing-sub">Indicative ranges based on surfaced intel.</p>
-                <ul className="intel-pricing-list">
-                  <li>
-                    <span className="intel-metric-label">Typical deal size</span>
-                    <span className="intel-metric-value">
-                      {c.id === 'netsuite' && '$150k–$400k ARR'}
-                      {c.id === 'sap' && '$500k+ ARR'}
-                      {c.id === 'oracle' && '$300k–$800k ARR'}
-                      {c.id === 'workday' && '$200k–$600k ARR'}
-                      {!['netsuite', 'sap', 'oracle', 'workday'].includes(c.id) && 'Unknown'}
-                    </span>
-                  </li>
-                  <li>
-                    <span className="intel-metric-label">Pricing model</span>
-                    <span className="intel-metric-value">
-                      {c.id === 'netsuite' && 'Seat + module-based'}
-                      {c.id === 'sap' && 'License + usage-based'}
-                      {c.id === 'oracle' && 'Hybrid (seat + usage)'}
-                      {c.id === 'workday' && 'Seat-based'}
-                      {!['netsuite', 'sap', 'oracle', 'workday'].includes(c.id) && 'To be mapped'}
-                    </span>
-                  </li>
-                  <li>
-                    <span className="intel-metric-label">Discount practices</span>
-                    <span className="intel-metric-value">
-                      {c.id === 'netsuite' && 'Aggressive EoQ discounting; services bundled.'}
-                      {c.id === 'sap' && 'Enterprise commit-focused; multi-year incentives.'}
-                      {c.id === 'oracle' && 'High list, heavy discount patterns.'}
-                      {c.id === 'workday' && 'Tighter guardrails; value-based framing.'}
-                      {!['netsuite', 'sap', 'oracle', 'workday'].includes(c.id) &&
-                        'Monitor RFPs and forums for patterns.'}
-                    </span>
-                  </li>
-                  <li>
-                    <span className="intel-metric-label">Risk flags</span>
-                    <span className="intel-metric-value">
-                      {c.id === 'netsuite' && 'Implementation overages; long SOW cycles.'}
-                      {c.id === 'sap' && 'Complex scopes; multi-partner dependencies.'}
-                      {c.id === 'oracle' && 'Audit and licensing exposure.'}
-                      {c.id === 'workday' && 'Change management and adoption effort.'}
-                      {!['netsuite', 'sap', 'oracle', 'workday'].includes(c.id) &&
-                        'To be derived from win/loss notes.'}
-                    </span>
-                  </li>
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="intel-framework">
-          <h3>Sentiment tracking</h3>
-          <p className="intel-section-sub">
-            Rolling signal from reviews, forums, and social mentions pulled via You.com and your
-            own notes.
-          </p>
-          <div className="intel-sentiment-grid">
-            <div className="intel-sentiment-card">
-              <h4>NetSuite</h4>
-              <p className="intel-sentiment-score">Overall: Mixed</p>
-              <ul className="intel-sentiment-list">
-                <li>Strength: Reporting flexibility and mid-market fit.</li>
-                <li>Risk: Increasing frustration with support response times.</li>
-                <li>Watch: Implementation partner variability by region.</li>
-              </ul>
-            </div>
-            <div className="intel-sentiment-card">
-              <h4>Oracle</h4>
-              <p className="intel-sentiment-score">Overall: Positive but cautious</p>
-              <ul className="intel-sentiment-list">
-                <li>Strength: Depth in financial controls and analytics.</li>
-                <li>Risk: Configuration complexity and long ramp timelines.</li>
-                <li>Watch: Pricing predictability in renewals.</li>
-              </ul>
-            </div>
-            <div className="intel-sentiment-card">
-              <h4>SAP</h4>
-              <p className="intel-sentiment-score">Overall: Polarized</p>
-              <ul className="intel-sentiment-list">
-                <li>Strength: Enterprise-grade breadth and ecosystem.</li>
-                <li>Risk: Heavy implementation burden for smaller teams.</li>
-                <li>Watch: Perception of innovation pace in AI.</li>
-              </ul>
-            </div>
-          </div>
         </div>
       </section>
     </div>
@@ -855,7 +440,7 @@ function CompetitiveIntelView() {
 
 function App() {
   const [health, setHealth] = useState(null)
-  const [activePrimaryTab, setActivePrimaryTab] = useState('learn') // 'learn' | 'intel' | 'scenarios'
+  const [activePrimaryTab, setActivePrimaryTab] = useState('intel') // 'learn' | 'intel' | 'scenarios' — intel (competitors) active by default
 
   useEffect(() => {
     axios.get(API_URL ? `${API_URL}/health` : '/health')

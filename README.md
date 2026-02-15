@@ -59,26 +59,60 @@ Secrets (API keys, DB URLs) are read from the environment only (e.g. `.env` loca
 
 ## Running locally
 
+**Prerequisites**
+- Python 3.11+
+- Node.js 18+
+- PostgreSQL 15+ with pgvector extension
+
 **Backend**
 
 ```bash
-python -m venv .venv
+# Create and activate virtual environment
+python3 -m venv .venv
 source .venv/bin/activate      # or .venv\Scripts\activate on Windows
+
+# Install dependencies
 pip install -r requirements.txt
 
-# Example Postgres URL; adjust to your local setup
-export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/onboardai
+# Configure environment (create .env file or export variables)
+export DATABASE_URL=postgresql://user:password@localhost:5432/onboardai
+export GEMINI_API_KEY=your_gemini_key
+export YOU_API_KEY=your_you_com_key
+export RENDER_API_KEY=your_render_key  # Optional
 
-# Optional: set keys for Gemini and You.com
-export GEMINI_API_KEY=...
-export YOU_API_KEY=...
-
-uvicorn server:app --reload --port 8000
+# Start backend server
+./start-backend.sh
+# Or manually: uvicorn server:app --reload --host 0.0.0.0 --port 8001
 ```
 
 **Frontend (dev)**
 
-Use the React/Vite dev server from either the repo root or the `frontend` directory to run the UI locally.
+```bash
+cd frontend
+npm install
+npm run dev
+# Opens on http://localhost:5173 with API proxy to backend on port 8001
+```
+
+Or use the convenience script:
+```bash
+./start-frontend.sh
+```
+
+**Database Setup**
+
+If running PostgreSQL locally:
+```bash
+# Install PostgreSQL with pgvector
+# On macOS: brew install postgresql pgvector
+# On Ubuntu: apt-get install postgresql postgresql-contrib
+
+# Create database
+createdb onboardai
+
+# Enable pgvector extension
+psql onboardai -c "CREATE EXTENSION vector;"
+```
 
 ---
 
@@ -90,3 +124,80 @@ Use the React/Vite dev server from either the repo root or the `frontend` direct
 | `GEMINI_API_KEY` | Gemini API key for embeddings, answers, and briefs |
 | `YOU_API_KEY` | You.com API key for competitive and explainer search |
 | `RENDER_API_KEY` | Optional: used by `/api/render/usage` to show Render usage |
+
+---
+
+## Deployment on Render
+
+This project is configured for deployment on Render with PostgreSQL.
+
+**1. Create PostgreSQL Database**
+
+- Go to Render Dashboard → New → PostgreSQL
+- Name: `kindling-db` (or your preferred name)
+- Region: Choose closest to your users
+- Plan: Choose based on needs (Free tier available)
+- After creation, note the **Internal Database URL**
+
+**2. Create Web Service**
+
+- Go to Render Dashboard → New → Web Service
+- Connect your GitHub repository
+- Configure:
+  - **Name**: `kindling`
+  - **Environment**: `Python`
+  - **Build Command**: `./build.sh`
+  - **Start Command**: `./start.sh`
+  - **Instance Type**: Choose based on needs
+
+**3. Set Environment Variables**
+
+In the Render dashboard, add these environment variables:
+
+```
+DATABASE_URL=<your-render-postgres-internal-url>
+GEMINI_API_KEY=<your-gemini-api-key>
+YOU_API_KEY=<your-you-com-api-key>
+RENDER_API_KEY=<your-render-api-key>
+```
+
+**4. Enable pgvector**
+
+After database creation, enable the pgvector extension:
+
+```bash
+# Connect to your Render database via psql
+psql <your-database-external-url>
+
+# Enable pgvector
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+**5. Deploy**
+
+- Commit and push your changes
+- Render will automatically build and deploy
+- Check the deployment logs for any issues
+- Visit your app URL: `https://kindling.onrender.com` (or your chosen name)
+
+**Health Check**
+
+Once deployed, verify the service is running:
+```bash
+curl https://your-app.onrender.com/health
+```
+
+Should return:
+```json
+{
+  "status": "healthy",
+  "database": "connected"
+}
+```
+
+**Troubleshooting**
+
+- **Database connection issues**: Ensure `DATABASE_URL` uses the internal URL and includes `sslmode=require`
+- **Build failures**: Check that `build.sh` has execute permissions (`chmod +x build.sh`)
+- **Frontend not loading**: Verify frontend build completed in build logs
+- **API errors**: Check environment variables are set correctly in Render dashboard

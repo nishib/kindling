@@ -235,23 +235,38 @@ def health():
     }
 
 
-@app.get("/api/intel/feed")
-def intel_feed(db: Session = Depends(get_db)):
-    """Competitive Intelligence Feed (You.com) — cached results."""
+@app.get("/api/competitors/sources")
+def competitor_sources(priority: int = 1):
+    """
+    List competitors being monitored with their search terms.
+
+    Args:
+        priority: Max priority level (1=top 5, 2=include mid-tier, 3=all)
+    """
+    from competitor_sources import get_active_competitors
+
+    competitors = get_active_competitors(max_priority=priority)
+
+    return [
+        {
+            "competitor": c.name,
+            "category": c.category,
+            "priority": c.priority,
+            "status": "active" if c.enabled else "disabled"
+        }
+        for c in competitors
+    ]
+
+
+@app.get("/api/competitors/events")
+def competitor_events(db: Session = Depends(get_db), limit: int = 50):
+    """
+    Capability-level competitor change events (Release Notes + Docs "Capability Change Feed").
+    """
+    from competitor_sources import get_recent_events
+
     try:
-        from you_com import get_intel_feed
-        rows = get_intel_feed(db, limit=20)
-        return [
-            {
-                "id": r.id,
-                "competitor": r.competitor_name,
-                "type": r.intel_type,
-                "content": r.content,
-                "source_url": r.source_url,
-                "timestamp": r.created_at.isoformat() if r.created_at else None,
-            }
-            for r in rows
-        ]
+        return get_recent_events(db, limit=limit)
     except Exception:
         return []
 
@@ -267,15 +282,36 @@ def intel_search(q: str = "", count: int = 8, freshness: str = "month"):
         return {"web": [], "news": [], "query": q or "", "error": str(e)[:200]}
 
 
-@app.post("/api/intel/refresh")
-def intel_refresh(db: Session = Depends(get_db)):
-    """Refresh competitor intel from You.com (Phase 4 – You.com)."""
+@app.post("/api/competitors/crawl")
+def competitor_crawl(
+    db: Session = Depends(get_db),
+    priority: int = 1,
+    freshness: str = "week",
+    max_competitors: int | None = None
+):
+    """
+    Trigger a crawl using You.com live search for competitor intelligence.
+
+    Args:
+        priority: Max priority level (1=top 5, 2=include mid-tier, 3=all)
+        freshness: Time filter for You.com search ("day", "week", "month", "year")
+        max_competitors: Optional limit on number of competitors to crawl (for testing)
+
+    Returns detailed statistics about the crawl.
+    """
+    from competitor_sources import crawl_sources
+
     try:
-        from you_com import refresh_competitor_intel
-        added = refresh_competitor_intel(db)
-        return {"status": "ok", "added": added}
+        stats = crawl_sources(
+            db,
+            max_priority=priority,
+            freshness=freshness,
+            max_competitors=max_competitors
+        )
+        return {"status": "ok", **stats}
     except Exception as e:
-        return {"status": "error", "added": 0, "error": str(e)[:200]}
+        import traceback
+        return {"status": "error", "error": str(e)[:500], "traceback": traceback.format_exc()[:1000]}
 
 
 @app.get("/api/intel/customer")

@@ -171,7 +171,10 @@ def _is_erp_related(title: str, content: str) -> bool:
         "tariffs", "trade war", "economic downturn",
         # Training/courses/education (not product updates)
         "online course", "training course", "certification", "udemy", "coursera",
-        "learn", "tutorial", "bootcamp", "from zero to expert", "beginner guide"
+        "learn", "tutorial", "bootcamp", "from zero to expert", "beginner guide",
+        # Health/environment/science (not tech)
+        "microplastics", "plastic particles", "health risk", "medical", "disease",
+        "cancer", "virus", "pandemic", "climate change", "pollution", "waste"
     ]
 
     # Check for strong exclusions first

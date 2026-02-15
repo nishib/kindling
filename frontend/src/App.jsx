@@ -204,7 +204,6 @@ function CompetitiveIntelView() {
   const [eventsLoading, setEventsLoading] = useState(false)
   const [crawlLoading, setCrawlLoading] = useState(false)
   const [selectedCompetitor, setSelectedCompetitor] = useState('all')
-  const [selectedTheme, setSelectedTheme] = useState('all')
 
   useEffect(() => {
     axios.get(API_URL ? `${API_URL}/health` : '/health')
@@ -249,15 +248,8 @@ function CompetitiveIntelView() {
     ...registry.map(r => r.competitor),
   ]
 
-  const allThemes = [
-    'all',
-    ...Array.from(new Set(events.map(e => (e.theme || '').toLowerCase()).filter(Boolean))),
-  ]
-
   const filteredEvents = events.filter(e => {
-    const cOk = selectedCompetitor === 'all' || e.competitor === selectedCompetitor
-    const tOk = selectedTheme === 'all' || (e.theme || '').toLowerCase() === selectedTheme
-    return cOk && tOk
+    return selectedCompetitor === 'all' || e.competitor === selectedCompetitor
   })
 
   return (
@@ -288,57 +280,6 @@ function CompetitiveIntelView() {
         </div>
       </section>
 
-      <section className="intel-watchlist">
-        <div className="intel-section-header">
-          <div>
-            <h3>Source registry by competitor</h3>
-            <p className="intel-section-sub">
-              High-signal URLs the crawler watches for each ERP vendor (release notes, docs,
-              deprecations, changelogs).
-            </p>
-          </div>
-        </div>
-        <div className="intel-watchlist-grid">
-          {(registry || []).map((c) => {
-            const sources = c?.sources ?? []
-            return (
-            <div key={c.competitor} className="intel-competitor-card">
-              <div className="intel-competitor-header">
-                <div className="intel-avatar">
-                  <span>{(c.competitor || '').charAt(0)}</span>
-                </div>
-                <div>
-                  <h4>{c.competitor}</h4>
-                  <p className="intel-competitor-verticals">
-                    {sources.length} high-signal source{sources.length === 1 ? '' : 's'}
-                  </p>
-                </div>
-              </div>
-              <div className="intel-competitor-metrics registry-layout">
-                <div className="intel-registry-column">
-                  <span className="intel-metric-label">Watched URLs</span>
-                  <ul className="intel-so-what-list">
-                    {sources.map((src, idx) => (
-                      <li key={idx}>
-                        <a
-                          href={src.url}
-                          className="intel-link"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {src.label || src.url}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-            )
-          })}
-        </div>
-      </section>
-
       <section className="intel-live-and-timeline">
         <div className="intel-live-column">
           <h3>Capability change feed</h3>
@@ -356,18 +297,6 @@ function CompetitiveIntelView() {
               {allCompetitors.map((c) => (
                 <option key={c} value={c}>
                   {c === 'all' ? 'All competitors' : c}
-                </option>
-              ))}
-            </select>
-            <label htmlFor="theme-filter">Theme</label>
-            <select
-              id="theme-filter"
-              value={selectedTheme}
-              onChange={(e) => setSelectedTheme(e.target.value)}
-            >
-              {allThemes.map((t) => (
-                <option key={t} value={t}>
-                  {t === 'all' ? 'All themes' : t}
                 </option>
               ))}
             </select>
@@ -396,14 +325,9 @@ function CompetitiveIntelView() {
                       <span className="intel-event-competitor">{e.competitor}</span>
                       <span className="intel-event-type">{e.change_type}</span>
                     </div>
-                    {e.created_at && (
-                      <span className="intel-event-time">
-                        {new Date(e.created_at).toLocaleString()}
-                      </span>
-                    )}
                   </div>
                   <p className="intel-event-content">
-                    <strong>{e.theme}</strong> — {e.claim}
+                    {e.claim}
                   </p>
                   <ul className="intel-so-what-list">
                     {(e.beginner_summary || []).map((b, i) => (
@@ -412,7 +336,6 @@ function CompetitiveIntelView() {
                   </ul>
                   <div className="intel-event-footer">
                     <span className="intel-event-tags">
-                      {e.theme && <span className="intel-tag">{e.theme}</span>}
                       {e.change_type && <span className="intel-tag">{e.change_type}</span>}
                     </span>
                     <div className="intel-event-links">

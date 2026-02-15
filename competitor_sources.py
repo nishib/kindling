@@ -137,37 +137,76 @@ def get_active_competitors(max_priority: int = 3) -> List[Competitor]:
 
 def _is_erp_related(title: str, content: str) -> bool:
     """
-    Check if article is actually about ERP/accounting/finance software.
-    Returns True only if content contains ERP-related keywords.
+    Check if article is actually about ERP/accounting/finance SOFTWARE.
+    Requires multiple strong indicators that this is about B2B software products.
+    Returns True only if content is specifically about ERP/accounting software systems.
     """
     combined = (title + " " + content).lower()
 
-    # Must contain at least one primary ERP keyword
-    erp_keywords = [
-        "erp", "accounting software", "financial management", "finance software",
-        "general ledger", "revenue recognition", "accounts payable", "accounts receivable",
-        "financial close", "chart of accounts", "journal entries", "financial reporting",
-        "accounting automation", "financial planning", "consolidation", "multi-entity",
-        "subledger", "financial statements", "trial balance", "cash management",
-        "expense management", "procurement software", "inventory management system",
-        "order management", "billing system", "invoicing software", "payment processing"
-    ]
-
-    # Exclude articles about unrelated topics
-    exclude_keywords = [
+    # STRONG exclusions first - consumer/personal finance topics
+    strong_exclude = [
+        # Personal/consumer banking
+        "personal account", "savings account", "checking account", "women's account",
+        "credit card", "debit card", "mortgage", "loan", "personal finance",
+        "consumer banking", "retail banking", "bank account", "financial advisor",
+        # Politics, legal, news
         "border", "immigration", "federal crackdown", "court case", "lawsuit",
-        "criminal", "politics", "election", "war", "military", "sports",
-        "entertainment", "celebrity", "music", "movie", "gaming",
-        "cryptocurrency", "bitcoin", "blockchain", "nft", "trading",
-        "real estate", "property", "housing market"
+        "criminal", "politics", "election", "war", "military",
+        # Entertainment
+        "sports", "entertainment", "celebrity", "music", "movie", "gaming",
+        # Crypto/trading
+        "cryptocurrency", "bitcoin", "blockchain", "nft", "trading", "forex",
+        # Real estate
+        "real estate", "property", "housing market", "mortgage",
+        # HR/recruiting (not ERP)
+        "job posting", "career opportunities", "hiring", "resume",
+        # Security threats/hacks (not product features)
+        "malicious", "hijack", "hack", "breach", "cyber attack", "cyberattack",
+        "ransomware", "phishing", "scam", "fraud", "exploit", "vulnerability",
+        "data breach", "security threat", "malware",
+        # Stock market/company earnings (not product news)
+        "stock price", "share price", "shares tumble", "shares rise", "earnings report",
+        "quarterly earnings", "revenue growth", "profit", "pat nearly doubles",
+        "stock plummets", "stock soars", "market cap", "ipo", "acquisition price",
+        "tariffs", "trade war", "economic downturn",
+        # Training/courses/education (not product updates)
+        "online course", "training course", "certification", "udemy", "coursera",
+        "learn", "tutorial", "bootcamp", "from zero to expert", "beginner guide"
     ]
 
-    # Check for exclusions first
-    if any(keyword in combined for keyword in exclude_keywords):
+    # Check for strong exclusions first
+    if any(keyword in combined for keyword in strong_exclude):
         return False
 
-    # Must have at least one ERP keyword
-    return any(keyword in combined for keyword in erp_keywords)
+    # PRIMARY REQUIREMENT: Must explicitly mention SOFTWARE/SYSTEM/PRODUCT
+    software_indicators = [
+        "software", "system", "platform", "solution", "product", "application",
+        "cloud", "saas", "technology", "tool", "module", "feature", "release",
+        "update", "version", "integration", "api"
+    ]
+
+    has_software_indicator = any(indicator in combined for indicator in software_indicators)
+    if not has_software_indicator:
+        return False
+
+    # SECONDARY REQUIREMENT: Must mention specific ERP/accounting functionality
+    erp_specific_keywords = [
+        "erp", "accounting software", "financial management software",
+        "general ledger", "gl", "revenue recognition", "accounts payable", "ap automation",
+        "accounts receivable", "ar", "financial close", "chart of accounts",
+        "journal entries", "financial reporting", "consolidation", "multi-entity",
+        "subledger", "sub-ledger", "trial balance", "financial statements",
+        "expense management", "procurement", "order management",
+        "billing system", "invoicing", "payment processing",
+        "accounting automation", "financial planning", "budgeting software",
+        "audit trail", "compliance", "gaap", "ifrs", "asc 606"
+    ]
+
+    # Count how many ERP-specific keywords are present
+    erp_keyword_matches = sum(1 for keyword in erp_specific_keywords if keyword in combined)
+
+    # Require at least 1 ERP-specific keyword (combined with software indicator makes this strict enough)
+    return erp_keyword_matches >= 1
 
 
 def _create_fallback_event(

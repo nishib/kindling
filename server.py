@@ -247,6 +247,30 @@ def health():
     }
 
 
+@app.get("/api/diagnostics")
+def diagnostics():
+    """Diagnostic endpoint to check API key configuration."""
+    import os
+
+    you_key = os.environ.get("YOU_API_KEY", "")
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+
+    return {
+        "you_api_key": {
+            "configured": bool(you_key),
+            "length": len(you_key) if you_key else 0,
+            "preview": you_key[:15] + "..." if len(you_key) > 15 else ""
+        },
+        "gemini_api_key": {
+            "configured": bool(gemini_key),
+            "length": len(gemini_key) if gemini_key else 0,
+            "preview": gemini_key[:15] + "..." if len(gemini_key) > 15 else ""
+        },
+        "crawler_ready": bool(you_key and gemini_key),
+        "message": "Both YOU_API_KEY and GEMINI_API_KEY required for crawler" if not (you_key and gemini_key) else "All API keys configured"
+    }
+
+
 @app.get("/api/competitors/sources")
 def competitor_sources(priority: int = 1):
     """

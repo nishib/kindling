@@ -3,6 +3,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -323,7 +324,7 @@ def competitor_crawl(
     db: Session = Depends(get_db),
     priority: int = 1,
     freshness: str = "week",
-    max_competitors: int | None = None
+    max_competitors: Optional[int] = None
 ):
     """
     Trigger a crawl using You.com live search for competitor intelligence.

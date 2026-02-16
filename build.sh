@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Render build script for Kindling
+# Render build script
 set -e
 
 echo "Installing Python dependencies..."

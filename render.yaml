@@ -1,11 +1,11 @@
 services:
   - type: web
     name: kindling
-    env: python
+    runtime: python
     region: oregon
     plan: free
-    buildCommand: pip install -r requirements.txt && cd frontend && npm install && npm run build && cd ..
-    startCommand: python -m uvicorn server:app --host 0.0.0.0 --port $PORT
+    buildCommand: ./build.sh
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9

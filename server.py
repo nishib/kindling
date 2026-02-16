@@ -1,9 +1,12 @@
 """FastAPI application for Campfire ERP Onboarding Assistant."""
+import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 # Load .env from repo root so RENDER_API_KEY etc. work when set locally
 load_dotenv(Path(__file__).resolve().parent / ".env")
@@ -12,10 +15,9 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from database import engine, get_db, init_pgvector
+from database import check_connection, engine, get_db, init_pgvector, ensure_connection
 from models import Base
 from scenarios import router as scenarios_router
 from learning_paths import get_all_paths, get_path
@@ -28,17 +30,30 @@ from erp_concept_graph import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: create tables and enable pgvector. Tolerate DB unavailable so app still starts."""
-    try:
-        Base.metadata.create_all(bind=engine)
-        db = next(get_db())
+    """Startup: connect to DB, create tables and enable pgvector with retry logic."""
+    # Try to establish connection with retries
+    if ensure_connection():
         try:
-            init_pgvector(db)
-        finally:
-            db.close()
-    except Exception:
-        pass  # DB may be unavailable; /health will report disconnected
+            Base.metadata.create_all(bind=engine)
+            db = next(get_db())
+            try:
+                init_pgvector(db)
+                logger.info("Database connected: tables ready, pgvector enabled")
+            finally:
+                db.close()
+        except Exception as e:
+            logger.warning("Database initialization failed: %s. Will retry on requests.", e)
+    else:
+        logger.warning("Database unavailable at startup. Will retry on requests. /health will report status.")
+
     yield
+
+    # Cleanup on shutdown
+    try:
+        engine.dispose()
+        logger.info("Database connection pool disposed")
+    except Exception as e:
+        logger.warning(f"Error disposing database connection pool: {e}")
 
 
 app = FastAPI(title="Campfire ERP Onboarding", lifespan=lifespan)
@@ -218,12 +233,7 @@ if os.path.isdir(frontend_dist):
 
 def check_db():
     """Test database connectivity."""
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        return "connected"
-    except Exception:
-        return "disconnected"
+    return "connected" if check_connection() else "disconnected"
 
 
 @app.get("/health")

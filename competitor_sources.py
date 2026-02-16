@@ -169,17 +169,47 @@ def _is_erp_related(title: str, content: str) -> bool:
         "quarterly earnings", "revenue growth", "profit", "pat nearly doubles",
         "stock plummets", "stock soars", "market cap", "ipo", "acquisition price",
         "tariffs", "trade war", "economic downturn",
+        # Company financial results/earnings (NOT product features)
+        " q1 ", " q2 ", " q3 ", " q4 ", "fy20", "fy21", "fy22", "fy23", "fy24", "fy25", "fy26", "fy27",
+        "quarterly revenue", "quarterly result", "financial result", "revenue report",
+        "revenue of rs", "profit of rs", " cr;", " cr,", " cr.", " crore", "9m revenue", "6m revenue",
+        "3m revenue", "h1 revenue", "h2 revenue", "half year", "full year results",
+        "reports revenue", "reports q", "reports profit", "fiscal year", "fiscal quarter",
+        "annual revenue", "announces earnings", "announces revenue", "announces results",
+        "posts revenue", "posts profit", "declares dividend", "net profit", "gross profit",
+        "ebitda", "net income", "pat ", "revenue stands at", "profit stands at",
         # Training/courses/education (not product updates)
         "online course", "training course", "certification", "udemy", "coursera",
         "learn", "tutorial", "bootcamp", "from zero to expert", "beginner guide",
         # Health/environment/science (not tech)
         "microplastics", "plastic particles", "health risk", "medical", "disease",
-        "cancer", "virus", "pandemic", "climate change", "pollution", "waste"
+        "cancer", "virus", "pandemic", "climate change", "pollution", "waste",
+        "shedding thousands", "everyday item", "environmental", "ecosystem"
     ]
 
-    # Check for strong exclusions first
-    if any(keyword in combined for keyword in strong_exclude):
-        return False
+    # Check for strong exclusions first (use word boundaries for single words to avoid false positives)
+    import re
+    for keyword in strong_exclude:
+        # For single words, use word boundary matching to avoid false positives like "war" in "software"
+        if " " not in keyword and len(keyword) <= 4:
+            # Single short word - use word boundary
+            if re.search(r'\b' + re.escape(keyword) + r'\b', combined):
+                return False
+        else:
+            # Phrase or longer word - simple substring match is fine
+            if keyword in combined:
+                return False
+
+    # FIRST: Check title only for quick rejection
+    title_lower = title.lower()
+    for keyword in strong_exclude:
+        # Same logic for title
+        if " " not in keyword and len(keyword) <= 4:
+            if re.search(r'\b' + re.escape(keyword) + r'\b', title_lower):
+                return False
+        else:
+            if keyword in title_lower:
+                return False
 
     # PRIMARY REQUIREMENT: Must explicitly mention SOFTWARE/SYSTEM/PRODUCT
     software_indicators = [
@@ -208,8 +238,21 @@ def _is_erp_related(title: str, content: str) -> bool:
     # Count how many ERP-specific keywords are present
     erp_keyword_matches = sum(1 for keyword in erp_specific_keywords if keyword in combined)
 
-    # Require at least 1 ERP-specific keyword (combined with software indicator makes this strict enough)
-    return erp_keyword_matches >= 1
+    # STRICT: Require at least 2 ERP-specific keywords for better accuracy
+    # OR if title contains specific ERP terms, allow with 1 match
+    title_has_erp = any(keyword in title_lower for keyword in ["erp", "accounting", "financial management", "general ledger"])
+
+    # Also check content for strong ERP indicators
+    content_lower = content.lower()
+    has_strong_erp_in_content = any(keyword in content_lower for keyword in ["erp", "accounting software", "financial management software", "general ledger"])
+
+    if title_has_erp and erp_keyword_matches >= 1:
+        return True
+
+    if has_strong_erp_in_content and erp_keyword_matches >= 1:
+        return True
+
+    return erp_keyword_matches >= 2
 
 
 def _create_fallback_event(
@@ -220,6 +263,8 @@ def _create_fallback_event(
     Create a fallback event when Gemini is unavailable.
     Uses simple heuristics from the You.com search result.
     Returns None if content is not ERP-related.
+
+    STRICT FALLBACK: Only creates events if title clearly indicates ERP/accounting software news.
     """
     title = search_result.get("title", "")
     content = search_result.get("content", "")
@@ -227,6 +272,20 @@ def _create_fallback_event(
 
     # Validate it's actually about ERP/accounting
     if not _is_erp_related(title, content):
+        return None
+
+    title_lower = title.lower()
+
+    # STRICT: Title must explicitly mention ERP/accounting/financial software
+    # Don't rely on content which may have search query contamination
+    required_title_indicators = [
+        "erp", "accounting", "financial management", "general ledger",
+        "revenue recognition", "accounts payable", "accounts receivable",
+        "financial close", "invoicing", "billing"
+    ]
+
+    if not any(indicator in title_lower for indicator in required_title_indicators):
+        logger.debug(f"Fallback skipped - title doesn't mention ERP/accounting: {title[:60]}")
         return None
 
     # Simple classification based on keywords
@@ -248,11 +307,11 @@ def _create_fallback_event(
     if not claim.endswith("."):
         claim += "."
 
-    # Create simple beginner summary
+    # Create more specific fallback summary
     beginner_summary = [
         f"{competitor} announced: {title}",
-        "This is a recent update from the competitor.",
-        "Check the linked article for full details."
+        f"This appears to be a {change_type.replace('_', ' ')} related to their ERP/accounting software.",
+        "Note: This was extracted automatically. Check the linked article for full details."
     ]
 
     return {
@@ -306,10 +365,22 @@ Title: {title}
 Content: {content[:1500]}
 URL: {url}
 
-STRICT VALIDATION:
-- Article MUST be about ERP, accounting software, financial management systems, or finance software features
-- REJECT if about: politics, legal cases, unrelated business news, general company news, non-software topics
-- REJECT if not specifically about their software product capabilities
+STRICT VALIDATION - REJECT if the article is about:
+- ❌ Company earnings reports, quarterly results, revenue announcements (Q1/Q2/Q3/Q4, FY20XX)
+- ❌ Stock price movements, financial performance, profit/loss statements
+- ❌ Politics, legal cases, lawsuits, regulations
+- ❌ General business news not related to product features
+- ❌ Training courses, certifications, tutorials
+- ❌ Security breaches, hacks, vulnerabilities
+- ❌ Environmental issues, health topics (microplastics, pollution, etc.)
+- ❌ Personal finance, consumer banking, credit cards
+
+ACCEPT ONLY if the article is about:
+- ✅ NEW software features, modules, or capabilities in their ERP/accounting product
+- ✅ Product updates, enhancements, or improvements
+- ✅ Technical integrations, API releases
+- ✅ Software partnerships that add product functionality
+- ✅ Specific accounting/finance features: GL, AR, AP, revenue recognition, financial close, etc.
 
 Return a JSON object with EXACTLY these fields:
 
@@ -410,10 +481,11 @@ def crawl_competitor(
     db: Session,
     competitor: Competitor,
     freshness: str = "week",
-    max_results_per_query: int = 3
+    max_results_per_query: int = 5
 ) -> int:
     """
     Crawl a single competitor using You.com search.
+    Limits to top 5 results per search query.
 
     Returns number of new IntelEvents created.
     """

@@ -409,7 +409,7 @@ function App() {
             onClick={() => setActivePrimaryTab('intel')}
           >
             <span className="primary-rail-title">Competitive Intel</span>
-            <span className="primary-rail-sub">Battlecards, timelines, pricing</span>
+            <span className="primary-rail-sub">Capability tracking, feature updates, release notes</span>
           </button>
           <button
             type="button"

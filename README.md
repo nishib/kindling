@@ -80,7 +80,7 @@ export GEMINI_API_KEY=your_gemini_key
 export YOU_API_KEY=your_you_com_key
 export RENDER_API_KEY=your_render_key  # Optional
 
-# Start backend server
+# Start backend server (runs init_db automatically when Postgres is available)
 ./start-backend.sh
 # Or manually: uvicorn server:app --reload --host 0.0.0.0 --port 8001
 ```
@@ -99,20 +99,38 @@ Or use the convenience script:
 ./start-frontend.sh
 ```
 
-**Database Setup**
+**Database setup (connect backend to Postgres)**
 
-If running PostgreSQL locally:
-```bash
-# Install PostgreSQL with pgvector
-# On macOS: brew install postgresql pgvector
-# On Ubuntu: apt-get install postgresql postgresql-contrib
+1. Install and start PostgreSQL with pgvector:
+   ```bash
+   # macOS
+   brew install postgresql pgvector
+   brew services start postgresql
 
-# Create database
-createdb onboardai
+   # Ubuntu
+   apt-get install postgresql postgresql-contrib
+   # Install pgvector per https://github.com/pgvector/pgvector
+   ```
 
-# Enable pgvector extension
-psql onboardai -c "CREATE EXTENSION vector;"
-```
+2. Create the database and set `DATABASE_URL` in `.env`:
+   ```bash
+   createdb onboardai
+   # In .env: DATABASE_URL=postgresql://user:password@localhost:5432/onboardai
+   # Use port 5434 if Postgres runs in Docker (see .env.example)
+   ```
+
+3. Initialize tables and pgvector (run once):
+   ```bash
+   python init_db.py
+   ```
+   This creates all tables (`knowledge_items`, `competitor_intel`, `intel_events`, `you_com_cache`, `erp_scenario_runs`, etc.) and enables the pgvector extension.
+
+4. Start the backend with `./start-backend.sh` (it runs `init_db.py` automatically). Check connection:
+   ```bash
+   ./start-backend.sh
+   curl http://localhost:8001/health
+   # Expect: {"status":"healthy","database":"connected"}
+   ```
 
 ---
 

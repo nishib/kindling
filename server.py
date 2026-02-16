@@ -311,7 +311,24 @@ def competitor_crawl(
 
     Returns detailed statistics about the crawl.
     """
+    import os
     from competitor_sources import crawl_sources
+    from you_com import _headers as you_headers
+
+    # Pre-flight checks for required API keys
+    missing_keys = []
+    if not os.environ.get("YOU_API_KEY"):
+        missing_keys.append("YOU_API_KEY")
+    if not os.environ.get("GEMINI_API_KEY"):
+        missing_keys.append("GEMINI_API_KEY")
+
+    if missing_keys:
+        logger.error(f"Crawler pre-flight check failed: missing {', '.join(missing_keys)}")
+        return {
+            "status": "error",
+            "error": f"Missing required environment variables: {', '.join(missing_keys)}",
+            "message": "Configure API keys in Render dashboard Environment settings"
+        }
 
     try:
         stats = crawl_sources(
@@ -320,10 +337,34 @@ def competitor_crawl(
             freshness=freshness,
             max_competitors=max_competitors
         )
+
+        # Add warning if no events were created despite successful crawl
+        if stats.get("events_created", 0) == 0:
+            logger.warning("Crawl completed but created 0 events - check API quotas")
+            stats["warning"] = "No events created. This may indicate API quota limits or no new content found."
+
         return {"status": "ok", **stats}
     except Exception as e:
         import traceback
-        return {"status": "error", "error": str(e)[:500], "traceback": traceback.format_exc()[:1000]}
+        error_msg = str(e)
+        trace = traceback.format_exc()
+        logger.error(f"Crawler error: {error_msg}")
+        logger.error(trace)
+
+        # Check for specific error patterns
+        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "quota" in error_msg.lower():
+            return {
+                "status": "error",
+                "error": "API quota exceeded",
+                "message": "Gemini API free tier quota reached. Wait 24 hours or upgrade to paid tier.",
+                "details": error_msg[:300]
+            }
+
+        return {
+            "status": "error",
+            "error": error_msg[:500],
+            "traceback": trace[:1000]
+        }
 
 
 @app.get("/api/intel/customer")

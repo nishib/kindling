@@ -91,14 +91,12 @@ def month_end_mentor(payload: dict):
 
     client = _client()
     if not client:
-        # Fallback: mirror existing scripted behavior when GEMINI_API_KEY is not set
-        return {
-          "sentiment": "neutral",
-          "message": (
-            "Gemini is not configured (missing GEMINI_API_KEY). "
-            "The Month-End Close Mentor will use the built-in scripted guidance instead."
-          )
-        }
+        # No Gemini client - let frontend use scripted fallback
+        logger.info("Gemini client not available - frontend will use scripted guidance")
+        raise HTTPException(
+            status_code=503,
+            detail="AI Mentor unavailable - using scripted guidance"
+        )
 
     view = payload.get("view") or "DASHBOARD"
     period_status = payload.get("periodStatus") or "OPEN"
@@ -199,14 +197,18 @@ Your job:
             "sentiment": sentiment,
             "message": str(text).strip(),
         }
-    except Exception:
-        return {
-            "sentiment": "warning",
-            "message": (
-                "An issue occurred calling Gemini. Use the on-screen modules to clear each "
-                "Validation Exception before attempting to Close Period again."
-            ),
-        }
+    except Exception as e:
+        # Log the error for debugging but don't expose to user
+        import traceback
+        logger.error(f"Gemini mentor call failed: {e}")
+        logger.error(traceback.format_exc())
+
+        # Return None to signal frontend to use its scripted fallback
+        # Frontend has comprehensive scripted messages that handle all states
+        raise HTTPException(
+            status_code=503,
+            detail="AI Mentor temporarily unavailable - using scripted guidance"
+        )
 
 # Serve static PDF brief
 static_dir = os.path.join(os.path.dirname(__file__), "static")

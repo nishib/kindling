@@ -249,21 +249,20 @@ function AiMentorPanel({ mentorState }) {
       : 'mentor-card-neutral'
 
   return (
-    <aside className={`mentor-panel ${sentimentClass}`}>
-      <div className="mentor-header">
+    <div className={`mentor-panel-horizontal ${sentimentClass}`}>
+      <div className="mentor-header-horizontal">
         <div className="mentor-avatar-wrapper">
           <div className="mentor-avatar">
-            <span className="mentor-avatar-initials">C</span>
+            <span className="mentor-avatar-initials">AI</span>
           </div>
           <span className="mentor-status-dot" />
         </div>
-        <div className="mentor-header-text">
-          <h4 className="mentor-title">AI Mentor</h4>
-          <p className="mentor-sub">The Controller guiding your month-end close.</p>
+        <div className="mentor-header-text-horizontal">
+          <h4 className="mentor-title-horizontal">AI Coach</h4>
         </div>
       </div>
-      <div className="mentor-body">
-        <p className="mentor-message">{message || 'Loading guidance…'}</p>
+      <div className="mentor-body-horizontal">
+        <p className="mentor-message-horizontal">{message || 'Loading guidance…'}</p>
         {isTyping && (
           <div className="mentor-typing">
             <span className="mentor-dot" />
@@ -272,7 +271,7 @@ function AiMentorPanel({ mentorState }) {
           </div>
         )}
       </div>
-    </aside>
+    </div>
   )
 }
 
@@ -779,8 +778,12 @@ function MonthEndGame() {
   }
 
   return (
-    <div className="monthend-root">
-      <div className="monthend-main">
+    <div className="monthend-root-fullscreen">
+      {/* AI Mentor at top - horizontal */}
+      <AiMentorPanel mentorState={mentorState} />
+
+      {/* Main content full-width */}
+      <div className="monthend-main-fullscreen">
         <div className="monthend-header-row">
           <div>
             <h2 className="monthend-title">Month-End Close game</h2>
@@ -826,8 +829,6 @@ function MonthEndGame() {
           />
         )}
       </div>
-
-      <AiMentorPanel mentorState={mentorState} />
 
       {showValidation && (
         <ValidationModal

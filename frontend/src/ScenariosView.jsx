@@ -124,57 +124,61 @@ function ScenariosView() {
     }
   }
 
+  const isMonthEndActive = isMonthEndScenario && activeScenarioId === MONTH_END_SCENARIO.id
+
   return (
-    <div className="scenarios-root">
-      <div className="scenarios-rail" role="tablist" aria-orientation="vertical">
-        {loadingScenarios && <p className="scenarios-hint">Loading scenarios…</p>}
-        {errorScenarios && <p className="scenarios-error">{errorScenarios}</p>}
-        {!loadingScenarios && !errorScenarios && scenarios.length === 0 && (
-          <p className="scenarios-hint">No scenarios available yet from the backend.</p>
-        )}
-        <button
-          key={MONTH_END_SCENARIO.id}
-          type="button"
-          role="tab"
-          aria-selected={activeScenarioId === MONTH_END_SCENARIO.id}
-          className={`scenarios-rail-item ${
-            activeScenarioId === MONTH_END_SCENARIO.id ? 'active' : ''
-          }`}
-          onClick={() => {
-            setActiveScenarioId(MONTH_END_SCENARIO.id)
-            setRunId(null)
-            setRunState(null)
-            setDebrief(null)
-            setCoachMessages([])
-          }}
-        >
-          <span className="scenarios-rail-title">{MONTH_END_SCENARIO.title}</span>
-          <span className="scenarios-rail-meta">
-            {MONTH_END_SCENARIO.difficulty} · {MONTH_END_SCENARIO.estimated_minutes} min
-          </span>
-        </button>
-        {scenarios.map((scenario) => (
+    <div className={`scenarios-root ${isMonthEndActive ? 'fullscreen' : ''}`}>
+      {!isMonthEndActive && (
+        <div className="scenarios-rail" role="tablist" aria-orientation="vertical">
+          {loadingScenarios && <p className="scenarios-hint">Loading scenarios…</p>}
+          {errorScenarios && <p className="scenarios-error">{errorScenarios}</p>}
+          {!loadingScenarios && !errorScenarios && scenarios.length === 0 && (
+            <p className="scenarios-hint">No scenarios available yet from the backend.</p>
+          )}
           <button
-            key={scenario.id}
+            key={MONTH_END_SCENARIO.id}
             type="button"
             role="tab"
-            aria-selected={activeScenarioId === scenario.id}
-            className={`scenarios-rail-item ${activeScenarioId === scenario.id ? 'active' : ''}`}
+            aria-selected={activeScenarioId === MONTH_END_SCENARIO.id}
+            className={`scenarios-rail-item ${
+              activeScenarioId === MONTH_END_SCENARIO.id ? 'active' : ''
+            }`}
             onClick={() => {
-              setActiveScenarioId(scenario.id)
+              setActiveScenarioId(MONTH_END_SCENARIO.id)
               setRunId(null)
               setRunState(null)
               setDebrief(null)
               setCoachMessages([])
             }}
           >
-            <span className="scenarios-rail-title">{scenario.title}</span>
+            <span className="scenarios-rail-title">{MONTH_END_SCENARIO.title}</span>
             <span className="scenarios-rail-meta">
-              {scenario.difficulty} · {scenario.estimated_minutes} min
+              {MONTH_END_SCENARIO.difficulty} · {MONTH_END_SCENARIO.estimated_minutes} min
             </span>
           </button>
-        ))}
-      </div>
+          {scenarios.map((scenario) => (
+            <button
+              key={scenario.id}
+              type="button"
+              role="tab"
+              aria-selected={activeScenarioId === scenario.id}
+              className={`scenarios-rail-item ${activeScenarioId === scenario.id ? 'active' : ''}`}
+              onClick={() => {
+                setActiveScenarioId(scenario.id)
+                setRunId(null)
+                setRunState(null)
+                setDebrief(null)
+                setCoachMessages([])
+              }}
+            >
+              <span className="scenarios-rail-title">{scenario.title}</span>
+              <span className="scenarios-rail-meta">
+                {scenario.difficulty} · {scenario.estimated_minutes} min
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="scenarios-panel">
         {!activeScenario && (

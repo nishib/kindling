@@ -1325,6 +1325,11 @@
   align-items: flex-start;
 }
 
+/* Full-screen mode - hide sidebar */
+.scenarios-root.fullscreen {
+  grid-template-columns: 1fr;
+}
+
 .scenarios-rail {
   background: rgba(2, 31, 26, 0.8);
   border-radius: 16px;
@@ -1750,11 +1755,28 @@
   align-items: flex-start;
 }
 
+/* Full-screen layout - AI Mentor at top */
+.monthend-root-fullscreen {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
 .monthend-main {
   background: rgba(2, 31, 26, 0.95);
   border-radius: 14px;
   border: 1px solid var(--campfire-border-subtle);
   padding: 0.9rem 1rem 1rem;
+}
+
+.monthend-main-fullscreen {
+  background: rgba(2, 31, 26, 0.95);
+  border-radius: 14px;
+  border: 1px solid var(--campfire-border-subtle);
+  padding: 1.25rem 1.5rem;
+  width: 100%;
+  max-width: none;
 }
 
 .monthend-header-row {
@@ -2318,6 +2340,72 @@
   background: #8fffd0;
 }
 
+/* Horizontal AI Mentor Panel at top */
+.mentor-panel-horizontal {
+  background: rgba(4, 27, 23, 0.95);
+  border: 1px solid var(--campfire-border-subtle);
+  border-radius: 14px;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  width: 100%;
+  min-height: 80px;
+  transition: all 0.3s ease;
+}
+
+.mentor-panel-horizontal.mentor-card-warning {
+  border-color: rgba(251, 146, 60, 0.3);
+  background: rgba(251, 146, 60, 0.05);
+}
+
+.mentor-panel-horizontal.mentor-card-happy {
+  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.mentor-panel-horizontal.mentor-card-celebrating {
+  border-color: rgba(34, 211, 238, 0.3);
+  background: rgba(34, 211, 238, 0.05);
+}
+
+.mentor-header-horizontal {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.mentor-header-text-horizontal {
+  display: flex;
+  align-items: center;
+}
+
+.mentor-title-horizontal {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--campfire-accent);
+}
+
+.mentor-body-horizontal {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.mentor-message-horizontal {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--campfire-text-primary);
+  flex: 1;
+  min-width: 0;
+}
+
+/* Old vertical mentor panel (keep for other scenarios) */
 .mentor-panel {
   background: rgba(4, 27, 23, 0.95);
   color: var(--campfire-text-primary);
@@ -2470,6 +2558,26 @@
 
   .monthend-root {
     grid-template-columns: 1fr;
+  }
+
+  .monthend-root-fullscreen {
+    gap: 0.75rem;
+  }
+
+  .monthend-main-fullscreen {
+    padding: 1rem;
+  }
+
+  .mentor-panel-horizontal {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.85rem;
+    min-height: auto;
+    padding: 0.85rem 1rem;
+  }
+
+  .mentor-body-horizontal {
+    width: 100%;
   }
 
   .intel-empty-state {

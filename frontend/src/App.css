@@ -1794,6 +1794,79 @@
   margin-top: 0.75rem;
 }
 
+/* Onboarding instructions banner */
+.monthend-instructions-banner {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.1) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.monthend-instructions-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.monthend-instructions-badge {
+  background: var(--campfire-accent);
+  color: #022c22;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.monthend-instructions-header h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--campfire-text-primary);
+}
+
+.monthend-instructions-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.monthend-instruction-step {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+}
+
+.monthend-step-number {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--campfire-accent);
+  color: #022c22;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.monthend-instruction-step strong {
+  display: block;
+  font-size: 0.88rem;
+  margin-bottom: 0.2rem;
+  color: var(--campfire-text-primary);
+}
+
+.monthend-instruction-step p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--campfire-text-muted);
+}
+
 .monthend-dashboard-header {
   display: flex;
   justify-content: space-between;
@@ -1843,8 +1916,108 @@
   color: #022c22;
 }
 
-.monthend-close-btn:hover {
+.monthend-close-btn:hover:not(:disabled) {
   background: #8fffd0;
+}
+
+.monthend-close-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Horizontal layout for exceptions */
+.monthend-dashboard-horizontal {
+  margin-top: 0.8rem;
+}
+
+.monthend-exceptions-list h4 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.monthend-exception-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.85rem;
+}
+
+.monthend-exception-card {
+  background: rgba(127, 29, 29, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 10px;
+  padding: 1rem;
+  transition: all 0.2s;
+}
+
+.monthend-exception-card.cleared {
+  background: rgba(5, 150, 105, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
+  opacity: 0.7;
+}
+
+.monthend-exception-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.monthend-exception-status {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.monthend-exception-status.open {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.monthend-exception-status.cleared {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--campfire-accent);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.monthend-exception-header strong {
+  font-size: 0.9rem;
+  color: var(--campfire-text-primary);
+}
+
+.monthend-exception-card p {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+  color: var(--campfire-text-muted);
+  line-height: 1.4;
+}
+
+.monthend-exception-btn {
+  width: 100%;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.85rem;
+  border-radius: 8px;
+  background: var(--campfire-accent);
+  color: #022c22;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.monthend-exception-btn:hover:not(:disabled) {
+  background: #8fffd0;
+  transform: translateY(-1px);
+}
+
+.monthend-exception-btn:disabled {
+  background: rgba(16, 185, 129, 0.3);
+  color: var(--campfire-text-muted);
+  cursor: not-allowed;
 }
 
 .monthend-dashboard-grid {
@@ -1935,8 +2108,45 @@
   color: var(--campfire-text-muted);
 }
 
+/* Module navigation */
+.monthend-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--campfire-text-muted);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 8px;
+  margin-bottom: 0.85rem;
+  transition: all 0.2s;
+}
+
+.monthend-back-btn:hover {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--campfire-accent);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.monthend-module-breadcrumb {
+  display: inline-block;
+  font-size: 0.75rem;
+  color: var(--campfire-accent);
+  background: rgba(16, 185, 129, 0.15);
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
 .monthend-module {
   margin-top: 0.75rem;
+}
+
+.monthend-module-header {
+  margin-bottom: 0.9rem;
 }
 
 .monthend-module-header h3 {

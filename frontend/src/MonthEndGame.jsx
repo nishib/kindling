@@ -281,13 +281,58 @@ function DashboardView({ gameState, onCloseAttempt, onNavigate }) {
   const hasOpenIssues =
     tasks.apMismatch || tasks.revenueUnrecognized || tasks.suspenseBalance
 
+  const openIssuesCount = [tasks.apMismatch, tasks.revenueUnrecognized, tasks.suspenseBalance].filter(Boolean).length
+
   return (
     <section className="monthend-dashboard">
+      {/* Step-by-step instructions banner */}
+      {hasOpenIssues && (
+        <div className="monthend-instructions-banner">
+          <div className="monthend-instructions-header">
+            <span className="monthend-instructions-badge">Getting Started</span>
+            <h4>How to close the period ({openIssuesCount} issues remaining)</h4>
+          </div>
+          <div className="monthend-instructions-steps">
+            <div className="monthend-instruction-step">
+              <span className="monthend-step-number">1</span>
+              <div>
+                <strong>Review Exceptions</strong>
+                <p>Check the 3 validation exceptions below that are blocking the close</p>
+              </div>
+            </div>
+            <div className="monthend-instruction-step">
+              <span className="monthend-step-number">2</span>
+              <div>
+                <strong>Navigate to Module</strong>
+                <p>Click on a module button to jump into the ERP workspace</p>
+              </div>
+            </div>
+            <div className="monthend-instruction-step">
+              <span className="monthend-step-number">3</span>
+              <div>
+                <strong>Fix & Return</strong>
+                <p>Complete the action in each module, then return to dashboard</p>
+              </div>
+            </div>
+            <div className="monthend-instruction-step">
+              <span className="monthend-step-number">4</span>
+              <div>
+                <strong>Close Period</strong>
+                <p>Once all exceptions are cleared, click "Close Period" button</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="monthend-dashboard-header">
         <div>
           <h3>Month-End Close: Oct 2024</h3>
           <p className="monthend-dashboard-sub">
-            Operate like a Controller closing the books for month-end.
+            {periodStatus === 'CLOSED'
+              ? '✓ Period successfully closed! All validation exceptions resolved.'
+              : `${openIssuesCount} validation exception${openIssuesCount !== 1 ? 's' : ''} must be cleared before closing.`
+            }
           </p>
         </div>
         <div className="monthend-dashboard-meta">
@@ -301,90 +346,72 @@ function DashboardView({ gameState, onCloseAttempt, onNavigate }) {
             type="button"
             className="monthend-close-btn"
             onClick={onCloseAttempt}
+            disabled={periodStatus === 'CLOSED'}
           >
-            Close Period
+            {hasOpenIssues ? `Close Period (${openIssuesCount} issues)` : 'Close Period'}
           </button>
         </div>
       </header>
 
-      <div className="monthend-dashboard-grid">
-        <div className="monthend-card">
-          <h4>Validation summary</h4>
-          <p className="monthend-card-sub">
-            You must clear all Validation Exceptions before the period can be closed.
-          </p>
-          <ul className="monthend-task-list">
-            <li>
-              <span>Accounts Payable sub-ledger vs GL</span>
-              <span
-                className={`monthend-pill ${
-                  tasks.apMismatch ? 'monthend-pill-open' : 'monthend-pill-cleared'
-                }`}
+      {/* Horizontal layout for exceptions and modules */}
+      <div className="monthend-dashboard-horizontal">
+        <div className="monthend-exceptions-list">
+          <h4>Validation Exceptions {!hasOpenIssues && '✓'}</h4>
+          <div className="monthend-exception-cards">
+            <div className={`monthend-exception-card ${!tasks.apMismatch ? 'cleared' : ''}`}>
+              <div className="monthend-exception-header">
+                <span className={`monthend-exception-status ${!tasks.apMismatch ? 'cleared' : 'open'}`}>
+                  {tasks.apMismatch ? '!' : '✓'}
+                </span>
+                <strong>AP Sub-ledger Mismatch</strong>
+              </div>
+              <p>AP doesn't match general ledger</p>
+              <button
+                type="button"
+                className="monthend-exception-btn"
+                onClick={() => onNavigate(VIEW_STATES.AP_MODULE)}
+                disabled={!tasks.apMismatch}
               >
-                {tasks.apMismatch ? 'Exception' : 'Cleared'}
-              </span>
-            </li>
-            <li>
-              <span>Revenue schedule generation</span>
-              <span
-                className={`monthend-pill ${
-                  tasks.revenueUnrecognized
-                    ? 'monthend-pill-open'
-                    : 'monthend-pill-cleared'
-                }`}
-              >
-                {tasks.revenueUnrecognized ? 'Exception' : 'Cleared'}
-              </span>
-            </li>
-            <li>
-              <span>Suspense account balance</span>
-              <span
-                className={`monthend-pill ${
-                  tasks.suspenseBalance
-                    ? 'monthend-pill-open'
-                    : 'monthend-pill-cleared'
-                }`}
-              >
-                {tasks.suspenseBalance ? 'Exception' : 'Cleared'}
-              </span>
-            </li>
-          </ul>
-        </div>
+                {tasks.apMismatch ? 'Fix in AP Module →' : 'Resolved'}
+              </button>
+            </div>
 
-        <div className="monthend-card">
-          <h4>Navigate to modules</h4>
-          <p className="monthend-card-sub">
-            Jump into the ERP modules where Controllers actually resolve these issues.
-          </p>
-          <div className="monthend-nav-buttons">
-            <button
-              type="button"
-              className="monthend-nav-btn"
-              onClick={() => onNavigate(VIEW_STATES.AP_MODULE)}
-            >
-              Accounts Payable module
-            </button>
-            <button
-              type="button"
-              className="monthend-nav-btn"
-              onClick={() => onNavigate(VIEW_STATES.REV_REC_MODULE)}
-            >
-              Revenue Recognition module
-            </button>
-            <button
-              type="button"
-              className="monthend-nav-btn"
-              onClick={() => onNavigate(VIEW_STATES.GL_RECON_MODULE)}
-            >
-              GL Reconciliation module
-            </button>
+            <div className={`monthend-exception-card ${!tasks.revenueUnrecognized ? 'cleared' : ''}`}>
+              <div className="monthend-exception-header">
+                <span className={`monthend-exception-status ${!tasks.revenueUnrecognized ? 'cleared' : 'open'}`}>
+                  {tasks.revenueUnrecognized ? '!' : '✓'}
+                </span>
+                <strong>Revenue Unrecognized</strong>
+              </div>
+              <p>Revenue schedule not generated</p>
+              <button
+                type="button"
+                className="monthend-exception-btn"
+                onClick={() => onNavigate(VIEW_STATES.REV_REC_MODULE)}
+                disabled={!tasks.revenueUnrecognized}
+              >
+                {tasks.revenueUnrecognized ? 'Fix in Rev Rec →' : 'Resolved'}
+              </button>
+            </div>
+
+            <div className={`monthend-exception-card ${!tasks.suspenseBalance ? 'cleared' : ''}`}>
+              <div className="monthend-exception-header">
+                <span className={`monthend-exception-status ${!tasks.suspenseBalance ? 'cleared' : 'open'}`}>
+                  {tasks.suspenseBalance ? '!' : '✓'}
+                </span>
+                <strong>Suspense Balance</strong>
+              </div>
+              <p>Unreconciled items in Suspense</p>
+              <button
+                type="button"
+                className="monthend-exception-btn"
+                onClick={() => onNavigate(VIEW_STATES.GL_RECON_MODULE)}
+                disabled={!tasks.suspenseBalance}
+              >
+                {tasks.suspenseBalance ? 'Fix in GL Recon →' : 'Resolved'}
+              </button>
+            </div>
           </div>
-          {hasOpenIssues && (
-            <p className="monthend-dashboard-hint">
-              At enterprise scale, close is blocked until these Validation Exceptions are
-              resolved. Use the modules to clear each item.
-            </p>
-          )}
         </div>
       </div>
     </section>
@@ -460,15 +487,20 @@ function ValidationModal({ gameState, onClose, onNavigate }) {
   )
 }
 
-function ApModule({ resolved, onPost }) {
+function ApModule({ resolved, onPost, onBack }) {
   return (
     <section className="monthend-module">
+      <button type="button" className="monthend-back-btn" onClick={onBack}>
+        ← Back to Dashboard
+      </button>
       <header className="monthend-module-header">
-        <h3>Accounts Payable module</h3>
-        <p className="monthend-module-sub">
-          Clear the variance between the AP sub-ledger and general ledger by posting a
-          Draft invoice.
-        </p>
+        <div>
+          <span className="monthend-module-breadcrumb">Step 1 of 3</span>
+          <h3>Accounts Payable module</h3>
+          <p className="monthend-module-sub">
+            Clear the variance between the AP sub-ledger and general ledger by posting a Draft invoice.
+          </p>
+        </div>
       </header>
       <div className="monthend-module-body">
         <div className="monthend-card">
@@ -512,7 +544,7 @@ function ApModule({ resolved, onPost }) {
   )
 }
 
-function RevRecModule({ resolved, onGenerate }) {
+function RevRecModule({ resolved, onGenerate, onBack }) {
   const scheduleRows = useMemo(() => {
     if (!resolved) return []
     // Simple 12-month straight-line schedule for $120k
@@ -526,12 +558,17 @@ function RevRecModule({ resolved, onGenerate }) {
 
   return (
     <section className="monthend-module">
+      <button type="button" className="monthend-back-btn" onClick={onBack}>
+        ← Back to Dashboard
+      </button>
       <header className="monthend-module-header">
-        <h3>Revenue Recognition module</h3>
-        <p className="monthend-module-sub">
-          Turn a single $120k contract into a time-based revenue schedule that is
-          compliant with ASC 606.
-        </p>
+        <div>
+          <span className="monthend-module-breadcrumb">Step 2 of 3</span>
+          <h3>Revenue Recognition module</h3>
+          <p className="monthend-module-sub">
+            Turn a single $120k contract into a time-based revenue schedule that is compliant with ASC 606.
+          </p>
+        </div>
       </header>
       <div className="monthend-module-body">
         <div className="monthend-card">
@@ -579,7 +616,7 @@ function RevRecModule({ resolved, onGenerate }) {
   )
 }
 
-function GlReconModule({ resolved, onReconcile }) {
+function GlReconModule({ resolved, onReconcile, onBack }) {
   const [selectedAccount, setSelectedAccount] = useState('Suspense')
 
   const handleReconcile = () => {
@@ -590,12 +627,17 @@ function GlReconModule({ resolved, onReconcile }) {
 
   return (
     <section className="monthend-module">
+      <button type="button" className="monthend-back-btn" onClick={onBack}>
+        ← Back to Dashboard
+      </button>
       <header className="monthend-module-header">
-        <h3>GL Reconciliation module</h3>
-        <p className="monthend-module-sub">
-          Clear the Suspense account by reconciling this transaction to the correct GL
-          account.
-        </p>
+        <div>
+          <span className="monthend-module-breadcrumb">Step 3 of 3</span>
+          <h3>GL Reconciliation module</h3>
+          <p className="monthend-module-sub">
+            Clear the Suspense account by reconciling this transaction to the correct GL account.
+          </p>
+        </div>
       </header>
       <div className="monthend-module-body">
         <div className="monthend-card">
@@ -761,13 +803,18 @@ function MonthEndGame() {
         )}
 
         {gameState.view === VIEW_STATES.AP_MODULE && (
-          <ApModule resolved={!gameState.tasks.apMismatch} onPost={handlePostInvoice} />
+          <ApModule
+            resolved={!gameState.tasks.apMismatch}
+            onPost={handlePostInvoice}
+            onBack={() => goToView(VIEW_STATES.DASHBOARD)}
+          />
         )}
 
         {gameState.view === VIEW_STATES.REV_REC_MODULE && (
           <RevRecModule
             resolved={!gameState.tasks.revenueUnrecognized}
             onGenerate={handleGenerateSchedule}
+            onBack={() => goToView(VIEW_STATES.DASHBOARD)}
           />
         )}
 
@@ -775,6 +822,7 @@ function MonthEndGame() {
           <GlReconModule
             resolved={!gameState.tasks.suspenseBalance}
             onReconcile={handleReconcile}
+            onBack={() => goToView(VIEW_STATES.DASHBOARD)}
           />
         )}
       </div>

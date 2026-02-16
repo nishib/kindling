@@ -320,25 +320,22 @@ def intel_search(q: str = "", count: int = 8, freshness: str = "month"):
 
 
 @app.post("/api/competitors/crawl")
-def competitor_crawl(
-    db: Session = Depends(get_db),
-    priority: int = 1,
-    freshness: str = "week",
-    max_competitors: Optional[int] = None
-):
+def competitor_crawl(db: Session = Depends(get_db)):
     """
     Trigger a crawl using You.com live search for competitor intelligence.
 
-    Args:
-        priority: Max priority level (1=top 5, 2=include mid-tier, 3=all)
-        freshness: Time filter for You.com search ("day", "week", "month", "year")
-        max_competitors: Optional limit on number of competitors to crawl (for testing)
-
-    Returns detailed statistics about the crawl.
+    Uses default parameters optimized for production use:
+    - priority: 1 (top 5 competitors)
+    - freshness: "week" (past week)
+    - max_competitors: None (all enabled competitors)
     """
     import os
     from competitor_sources import crawl_sources
-    from you_com import _headers as you_headers
+
+    # Default parameters for production use
+    priority = 1
+    freshness = "week"
+    max_competitors = None
 
     # Pre-flight checks for required API keys
     missing_keys = []
